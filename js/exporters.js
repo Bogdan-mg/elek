@@ -160,6 +160,24 @@ export function exporteerPNG(canvas, schaal = 2) {
 /* ------------------------------------------------------------------ *
  * Afdrukken
  * ------------------------------------------------------------------ */
+export function drukAfLegende() {
+  const vlak = document.getElementById('print-vlak');
+  const inhoud = document.getElementById('legende-inhoud');
+  vlak.innerHTML = `<div class="print-blad print-legende" style="${kleurStijl()}">
+      <h1>Symbolenlegende</h1>
+      <p class="print-meta">Grafische symbolen volgens AREI Boek 1, tabel 2.23</p>
+      ${inhoud ? inhoud.innerHTML : ''}
+    </div>`;
+  document.body.classList.add('afdrukken');
+  const opruimen = () => {
+    document.body.classList.remove('afdrukken');
+    vlak.innerHTML = '';
+    window.removeEventListener('afterprint', opruimen);
+  };
+  window.addEventListener('afterprint', opruimen);
+  setTimeout(() => window.print(), 60);
+}
+
 export function drukAf(canvas) {
   const p = store.project;
   const vlak = document.getElementById('print-vlak');

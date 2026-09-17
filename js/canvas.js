@@ -17,6 +17,8 @@ export class PlanCanvas {
     this.svg = svg;
     this.view = { cx: 5, cy: 4, zoom: 60 };   // midden in meter, zoom in px/meter
     this.actie = null;
+    this.aanwijzer = null;       // gemagnetiseerd punt onder de cursor
+    this.onAanwijzer = null;     // terugroep voor de maatweergave
     this.pointers = new Map();
     this.pinch = null;
     this._rafId = 0;
@@ -132,9 +134,12 @@ export class PlanCanvas {
       s += '</g>';
     }
 
-    // Componenten
+    // Bouwkundige elementen eerst (ze snijden de muur weg), dan de symbolen
+    s += '<g class="laag-bouw">';
+    for (const c of p.componenten) if (def(c.type).kringtype === 'bouw') s += this.componentSVG(c, symM, lijn, voorExport);
+    s += '</g>';
     s += '<g class="laag-componenten">';
-    for (const c of p.componenten) s += this.componentSVG(c, symM, lijn, voorExport);
+    for (const c of p.componenten) if (def(c.type).kringtype !== 'bouw') s += this.componentSVG(c, symM, lijn, voorExport);
     s += '</g>';
 
     if (!voorExport) s += this.overlay(lijn, symM);
@@ -165,6 +170,9 @@ export class PlanCanvas {
     let s = `<polygon data-kind="ruimte" data-id="${r.id}" points="${punten}" ` +
       `fill="${r.kleur || d.kleur}" fill-opacity="0.85" stroke="${gesel ? 'var(--accent)' : 'var(--muur)'}" ` +
       `stroke-width="${gesel ? lijn * 3 : (r.muurdikte || 0.09)}" stroke-linejoin="miter"/>`;
+    if (store.ui.toonAlleMaten && !gesel) {
+      for (const [p1, p2] of segmenten(r.punten)) s += this.maatLabel(p1, p2, 'var(--tekst-plan-zacht)');
+    }
     if (store.ui.toonLabels || voorExport) {
       const naam = r.naam || d.naam;
       const h = Math.max(0.22, 13 / this.view.zoom);
@@ -178,8 +186,91 @@ export class PlanCanvas {
     return s;
   }
 
+  /**
+   * Deuren, ramen en doorgangen: die worden op ware breedte in de muur
+   * getekend, niet als symbool op schaal.
+   */
+  bouwSVG(c, lijn, voorExport) {
+    const d = def(c.type);
+    const b = (c.breedte ?? d.breedte ?? 0.9);
+    const ruimte = c.ruimteId && store.ruimte(c.ruimteId);
+    const dikte = (ruimte && ruimte.muurdikte) || 0.09;
+    const t = dikte + lijn * 2;
+    const gesel = !voorExport && store.isGeselecteerd(c.id);
+    const kleur = gesel ? 'var(--accent)' : 'var(--muur)';
+    let s = `<g data-kind="component" data-id="${c.id}" class="comp bouw${gesel ? ' geselecteerd' : ''}" ` +
+      `transform="translate(${c.x} ${c.y}) rotate(${c.rot || 0})">`;
+    // opening: de muur wordt weggesneden
+    s += `<rect x="${-b / 2}" y="${-t / 2}" width="${b}" height="${t}" fill="var(--vlak)" stroke="none"/>`;
+
+    if (c.type === 'raam' || c.type === 'terrasdeur') {
+      s += `<line x1="${-b / 2}" y1="${-t / 2}" x2="${b / 2}" y2="${-t / 2}" stroke="${kleur}" stroke-width="${lijn}"/>`;
+      s += `<line x1="${-b / 2}" y1="${t / 2}" x2="${b / 2}" y2="${t / 2}" stroke="${kleur}" stroke-width="${lijn}"/>`;
+      s += `<line x1="${-b / 2}" y1="0" x2="${b / 2}" y2="0" stroke="${kleur}" stroke-width="${lijn}"/>`;
+      if (c.type === 'terrasdeur') {
+        s += `<line x1="0" y1="${-t / 2}" x2="0" y2="${t / 2}" stroke="${kleur}" stroke-width="${lijn}"/>`;
+      }
+    } else if (c.type === 'doorgang') {
+      s += `<line x1="${-b / 2}" y1="${-t / 2}" x2="${-b / 2}" y2="${t / 2}" stroke="${kleur}" stroke-width="${lijn}"/>`;
+      s += `<line x1="${b / 2}" y1="${-t / 2}" x2="${b / 2}" y2="${t / 2}" stroke="${kleur}" stroke-width="${lijn}"/>`;
+    } else if (c.type === 'schuifdeur') {
+      s += `<line x1="${-b / 2}" y1="${-t * 0.2}" x2="${b / 2}" y2="${-t * 0.2}" stroke="${kleur}" stroke-width="${lijn * 2}"/>`;
+      s += `<line x1="${-b / 2 + b * 0.15}" y1="${t * 0.35}" x2="${b / 2 + b * 0.15}" y2="${t * 0.35}" stroke="${kleur}" stroke-width="${lijn * 2}"/>`;
+      s += `<path d="M ${b * 0.1} ${-t * 0.9} L ${b * 0.45} ${-t * 0.9} M ${b * 0.32} ${-t * 1.3} L ${b * 0.45} ${-t * 0.9} L ${b * 0.32} ${-t * 0.5}" ` +
+        `fill="none" stroke="${kleur}" stroke-width="${lijn}"/>`;
+    } else if (c.type === 'garagepoort') {
+      s += `<line x1="${-b / 2}" y1="0" x2="${b / 2}" y2="0" stroke="${kleur}" stroke-width="${lijn * 2}"/>`;
+      for (let i = 1; i < 5; i++) {
+        const x = -b / 2 + (b * i) / 5;
+        s += `<line x1="${x}" y1="${-t / 2}" x2="${x}" y2="${t / 2}" stroke="${kleur}" stroke-width="${lijn * 0.8}"/>`;
+      }
+    } else {
+      // deur of dubbele deur: blad met draaicirkel
+      const vleugels = c.type === 'deurDubbel' ? 2 : 1;
+      const w = b / vleugels;
+      for (let i = 0; i < vleugels; i++) {
+        const x0 = vleugels === 1 ? -b / 2 : (i === 0 ? -b / 2 : b / 2);
+        const richting = vleugels === 1 ? 1 : (i === 0 ? 1 : -1);
+        s += `<line x1="${x0}" y1="0" x2="${x0}" y2="${-w}" stroke="${kleur}" stroke-width="${lijn * 1.6}"/>`;
+        s += `<path d="M ${x0} ${-w} A ${w} ${w} 0 0 ${richting > 0 ? 1 : 0} ${x0 + richting * w} 0" ` +
+          `fill="none" stroke="${kleur}" stroke-width="${lijn * 0.8}" stroke-dasharray="${lijn * 3} ${lijn * 2}"/>`;
+      }
+      s += `<line x1="${-b / 2}" y1="${-t / 2}" x2="${-b / 2}" y2="${t / 2}" stroke="${kleur}" stroke-width="${lijn}"/>`;
+      s += `<line x1="${b / 2}" y1="${-t / 2}" x2="${b / 2}" y2="${t / 2}" stroke="${kleur}" stroke-width="${lijn}"/>`;
+    }
+    if (!voorExport) {
+      const raak = Math.max(t, 0.3, 20 / this.view.zoom);
+      s += `<rect x="${-b / 2}" y="${-raak / 2}" width="${b}" height="${raak}" fill="transparent" class="hit"/>`;
+    }
+    s += '</g>';
+    return s;
+  }
+
+  /** Trap: treden met looprichting. */
+  trapSVG(c, lijn, voorExport) {
+    const d = def(c.type);
+    const b = c.breedte ?? d.breedte ?? 1.0;
+    const diep = c.diepte ?? d.diepte ?? 2.6;
+    const gesel = !voorExport && store.isGeselecteerd(c.id);
+    const kleur = gesel ? 'var(--accent)' : 'var(--muur)';
+    const treden = Math.max(3, Math.round(diep / 0.26));
+    let s = `<g data-kind="component" data-id="${c.id}" class="comp bouw${gesel ? ' geselecteerd' : ''}" ` +
+      `transform="translate(${c.x} ${c.y}) rotate(${c.rot || 0})">`;
+    s += `<rect x="${-b / 2}" y="${-diep / 2}" width="${b}" height="${diep}" fill="var(--vlak)" stroke="${kleur}" stroke-width="${lijn}"/>`;
+    for (let i = 1; i < treden; i++) {
+      const y = -diep / 2 + (diep * i) / treden;
+      s += `<line x1="${-b / 2}" y1="${y}" x2="${b / 2}" y2="${y}" stroke="${kleur}" stroke-width="${lijn * 0.7}"/>`;
+    }
+    s += `<line x1="0" y1="${diep / 2 - 0.15}" x2="0" y2="${-diep / 2 + 0.15}" stroke="${kleur}" stroke-width="${lijn}"/>`;
+    s += `<path d="M ${-0.08} ${-diep / 2 + 0.3} L 0 ${-diep / 2 + 0.12} L 0.08 ${-diep / 2 + 0.3}" fill="none" stroke="${kleur}" stroke-width="${lijn}"/>`;
+    if (!voorExport) s += `<rect x="${-b / 2}" y="${-diep / 2}" width="${b}" height="${diep}" fill="transparent" class="hit"/>`;
+    s += '</g>';
+    return s;
+  }
+
   componentSVG(c, symM, lijn, voorExport) {
     const d = def(c.type);
+    if (d.kringtype === 'bouw') return c.type === 'trap' ? this.trapSVG(c, lijn, voorExport) : this.bouwSVG(c, lijn, voorExport);
     const kring = c.kringId && store.project.kringen.find((k) => k.id === c.kringId);
     const gesel = !voorExport && store.isGeselecteerd(c.id);
     const kleurPerKring = store.ui.kleurPerKring || store.ui.stap === 3;
@@ -214,57 +305,80 @@ export class PlanCanvas {
     const ui = store.ui;
     let s = '<g class="laag-overlay">';
 
-    // Greeppunten van een geselecteerde ruimte
+    // Maten en greeppunten van een geselecteerde ruimte
     const sel = ui.selectie.length === 1 ? store.ruimte(ui.selectie[0]) : null;
-    if (sel && ui.tool === 'select') {
-      const r = Math.max(0.08, 7 / this.view.zoom);
-      sel.punten.forEach((p, i) => {
-        s += `<circle data-kind="hoek" data-id="${sel.id}" data-index="${i}" cx="${p.x}" cy="${p.y}" r="${r}" ` +
-          `fill="var(--vlak)" stroke="var(--accent)" stroke-width="${lijn}"/>`;
-      });
-      // Zijdematen
-      const h = Math.max(0.16, 10 / this.view.zoom);
-      for (const [a, b] of segmenten(sel.punten)) {
-        const len = afstand(a, b);
-        if (len < 0.3) continue;
-        const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
-        s += `<text x="${mx}" y="${my - h * 0.4}" text-anchor="middle" font-size="${h}" fill="var(--accent)" ` +
-          `font-family="system-ui, sans-serif" style="pointer-events:none">${len.toFixed(2)} m</text>`;
+    if (sel) {
+      for (const [p1, p2] of segmenten(sel.punten)) s += this.maatLabel(p1, p2);
+      if (ui.tool === 'select') {
+        const r = Math.max(0.08, 7 / this.view.zoom);
+        sel.punten.forEach((p, i) => {
+          s += `<circle data-kind="hoek" data-id="${sel.id}" data-index="${i}" cx="${p.x}" cy="${p.y}" r="${r}" ` +
+            `fill="var(--vlak)" stroke="var(--accent)" stroke-width="${lijn}"/>`;
+        });
       }
     }
 
     // Voorbeeld tijdens tekenen
     const a = this.actie;
-    if (a && a.type === 'rect' && a.huidig) {
-      const pts = rechthoek(a.start, a.huidig).map((p) => `${p.x},${p.y}`).join(' ');
+    const punt = this.aanwijzer;
+
+    if (ui.bezigRechthoek && punt) {
+      const hoeken = rechthoek(ui.bezigRechthoek, punt);
+      const pts = hoeken.map((p) => `${p.x},${p.y}`).join(' ');
       s += `<polygon points="${pts}" fill="var(--accent)" fill-opacity="0.15" stroke="var(--accent)" ` +
         `stroke-width="${lijn * 2}" stroke-dasharray="${lijn * 4} ${lijn * 3}"/>`;
-      const b = omhullende(rechthoek(a.start, a.huidig));
-      const h = Math.max(0.18, 12 / this.view.zoom);
+      s += this.maatLabel(hoeken[0], hoeken[1]);
+      s += this.maatLabel(hoeken[1], hoeken[2]);
+      const b = omhullende(hoeken);
+      const h = Math.max(0.17, 12 / this.view.zoom);
       s += `<text x="${(b.x1 + b.x2) / 2}" y="${(b.y1 + b.y2) / 2}" text-anchor="middle" font-size="${h}" ` +
-        `fill="var(--accent)" font-weight="600" font-family="system-ui, sans-serif">${b.w.toFixed(2)} × ${b.h.toFixed(2)} m</text>`;
+        `fill="var(--accent)" font-weight="600" font-family="system-ui, sans-serif" style="pointer-events:none">` +
+        `${(b.w * b.h).toFixed(1)} m²</text>`;
     }
-    if (a && a.type === 'muur' && a.huidig) {
-      s += `<line x1="${a.start.x}" y1="${a.start.y}" x2="${a.huidig.x}" y2="${a.huidig.y}" ` +
-        `stroke="var(--accent)" stroke-width="${a.dikte || 0.1}" stroke-linecap="square" opacity="0.7"/>`;
+
+    if (ui.bezigMuur && punt) {
+      s += `<line x1="${ui.bezigMuur.x}" y1="${ui.bezigMuur.y}" x2="${punt.x}" y2="${punt.y}" ` +
+        `stroke="var(--accent)" stroke-width="0.1" stroke-linecap="square" opacity="0.65"/>`;
+      s += this.maatLabel(ui.bezigMuur, punt);
     }
+
     if (a && a.type === 'rubber' && a.huidig) {
       const b = omhullende([a.start, a.huidig]);
       s += `<rect x="${b.x1}" y="${b.y1}" width="${b.w}" height="${b.h}" fill="var(--accent)" fill-opacity="0.1" ` +
         `stroke="var(--accent)" stroke-width="${lijn}" stroke-dasharray="${lijn * 3} ${lijn * 3}"/>`;
     }
 
-    // Polygoon in opbouw
+    // Polygoon in opbouw, met de maat van elke zijde
     if (ui.bezigPolygoon && ui.bezigPolygoon.length) {
-      const pts = ui.bezigPolygoon.map((p) => `${p.x},${p.y}`).join(' ');
-      const laatste = ui.bezigPolygoon[ui.bezigPolygoon.length - 1];
-      s += `<polyline points="${pts}" fill="none" stroke="var(--accent)" stroke-width="${lijn * 2}"/>`;
-      if (this.muisWereld) {
-        s += `<line x1="${laatste.x}" y1="${laatste.y}" x2="${this.muisWereld.x}" y2="${this.muisWereld.y}" ` +
-          `stroke="var(--accent)" stroke-width="${lijn * 2}" stroke-dasharray="${lijn * 4} ${lijn * 3}"/>`;
+      const bezig = ui.bezigPolygoon;
+      const pts = bezig.map((p) => `${p.x},${p.y}`).join(' ');
+      const laatste = bezig[bezig.length - 1];
+      if (bezig.length > 2) {
+        s += `<polygon points="${pts}" fill="var(--accent)" fill-opacity="0.08" stroke="none"/>`;
       }
-      for (const p of ui.bezigPolygoon) {
-        s += `<circle cx="${p.x}" cy="${p.y}" r="${Math.max(0.06, 5 / this.view.zoom)}" fill="var(--accent)"/>`;
+      s += `<polyline points="${pts}" fill="none" stroke="var(--accent)" stroke-width="${lijn * 2}"/>`;
+      for (let i = 1; i < bezig.length; i++) s += this.maatLabel(bezig[i - 1], bezig[i], 'var(--tekst-plan)');
+      if (punt) {
+        s += `<line x1="${laatste.x}" y1="${laatste.y}" x2="${punt.x}" y2="${punt.y}" ` +
+          `stroke="var(--accent)" stroke-width="${lijn * 2}" stroke-dasharray="${lijn * 4} ${lijn * 3}"/>`;
+        s += this.maatLabel(laatste, punt);
+      }
+      const r = Math.max(0.06, 5 / this.view.zoom);
+      for (const p of bezig) s += `<circle cx="${p.x}" cy="${p.y}" r="${r}" fill="var(--accent)"/>`;
+      if (bezig.length > 2) {
+        s += `<circle cx="${bezig[0].x}" cy="${bezig[0].y}" r="${r * 2}" fill="var(--vlak)" ` +
+          `stroke="var(--accent)" stroke-width="${lijn}"/>`;
+      }
+    }
+
+    // Waar de cursor vastklikt
+    if (punt && punt.magneet && ['polygoon', 'muur', 'rechthoek'].includes(ui.tool)) {
+      const r = Math.max(0.08, 7 / this.view.zoom);
+      if (punt.magneet === 'hoekpunt') {
+        s += `<rect x="${punt.x - r}" y="${punt.y - r}" width="${r * 2}" height="${r * 2}" fill="none" ` +
+          `stroke="var(--accent)" stroke-width="${lijn * 1.5}"/>`;
+      } else {
+        s += `<circle cx="${punt.x}" cy="${punt.y}" r="${r * 0.7}" fill="none" stroke="var(--accent)" stroke-width="${lijn}"/>`;
       }
     }
 
@@ -322,9 +436,80 @@ export class PlanCanvas {
     } else if (ny > 0) {
       nx = -nx; ny = -ny;   // losse muur: standaard naar boven
     }
-    const offset = SYMBOOL_M * 0.55;
+    const offset = d.opDeMuur ? 0 : SYMBOOL_M * 0.55;
     const rot = (Math.atan2(nx, -ny) * 180) / Math.PI;
     return { x: +(wp.x + nx * offset).toFixed(3), y: +(wp.y + ny * offset).toFixed(3), rot: +rot.toFixed(1) };
+  }
+
+  /** Dichtstbijzijnde bestaande hoekpunt (van een ruimte of muur). */
+  dichtsteHoekpunt(punt, max = 0.35) {
+    let beste = null;
+    const kijk = (p) => {
+      const d = afstand(punt, p);
+      if (d < max && (!beste || d < beste.d)) beste = { d, p };
+    };
+    for (const r of store.project.plan.ruimtes) r.punten.forEach(kijk);
+    for (const m of store.project.plan.muren) { kijk(m.a); kijk(m.b); }
+    return beste ? { x: beste.p.x, y: beste.p.y } : null;
+  }
+
+  /**
+   * Punt om mee te tekenen. Het klikt op bestaande hoekpunten, houdt de
+   * richting op veelvouden van 45° (zodat lijnen recht blijven) en valt
+   * anders terug op het raster. Met Alt teken je vrij.
+   */
+  tekenpunt(punt, vorig = null, vrij = false) {
+    const raster = store.project.plan.raster;
+    const hoekpunt = this.dichtsteHoekpunt(punt, Math.max(0.28, 14 / this.view.zoom));
+    if (hoekpunt) return { ...hoekpunt, magneet: 'hoekpunt' };
+    if (vorig && !vrij) {
+      const dx = punt.x - vorig.x, dy = punt.y - vorig.y;
+      const lengte = Math.hypot(dx, dy);
+      if (lengte > 0.02) {
+        const stap = Math.PI / 4;
+        const hoek = Math.round(Math.atan2(dy, dx) / stap) * stap;
+        const afgerond = Math.max(raster, Math.round(lengte / raster) * raster);
+        return {
+          x: +(vorig.x + Math.cos(hoek) * afgerond).toFixed(3),
+          y: +(vorig.y + Math.sin(hoek) * afgerond).toFixed(3),
+          magneet: 'richting',
+        };
+      }
+    }
+    const p = snapPunt(punt, raster);
+    return { x: p.x, y: p.y, magneet: null };
+  }
+
+  /** Punt op een exacte afstand vanaf `vorig`, in de richting van de cursor. */
+  puntOpLengte(vorig, richting, lengte) {
+    const dx = richting.x - vorig.x, dy = richting.y - vorig.y;
+    const len = Math.hypot(dx, dy) || 1;
+    return {
+      x: +(vorig.x + (dx / len) * lengte).toFixed(3),
+      y: +(vorig.y + (dy / len) * lengte).toFixed(3),
+    };
+  }
+
+  /** Maatlabel langs een lijnstuk, altijd leesbaar gedraaid. */
+  maatLabel(a, b, kleur = 'var(--accent)') {
+    const len = afstand(a, b);
+    if (len < 0.08) return '';
+    let hoek = (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI;
+    if (hoek > 90 || hoek < -90) hoek += 180;
+    const h = Math.max(0.15, 11 / this.view.zoom);
+    return `<g transform="translate(${(a.x + b.x) / 2} ${(a.y + b.y) / 2}) rotate(${hoek})" style="pointer-events:none">` +
+      `<text x="0" y="${-h * 0.42}" text-anchor="middle" font-size="${h}" fill="${kleur}" font-weight="600" ` +
+      `font-family="system-ui, sans-serif" paint-order="stroke" stroke="var(--vlak)" stroke-width="${h * 0.3}" ` +
+      `stroke-linejoin="round">${len.toFixed(2)} m</text></g>`;
+  }
+
+  /** Lengte van een lijnstuk in meter. */
+  maatVan(a, b) { return afstand(a, b); }
+
+  /** Hoek van een lijnstuk in graden, 0 = horizontaal naar rechts. */
+  hoekVan(a, b) {
+    const g = (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI;
+    return Math.round(((g % 360) + 360) % 360);
   }
 
   ruimteOp(punt) {
@@ -352,6 +537,8 @@ export class PlanCanvas {
         kringId: store.ui.stap === 3 ? store.ui.actieveKring : null,
         hoogte: d.hoogte ?? null,
         watt: d.watt ?? null,
+        breedte: d.breedte ?? null,
+        diepte: d.diepte ?? null,
         opmerking: '',
       };
       p.componenten.push(c);
@@ -412,20 +599,38 @@ export class PlanCanvas {
         if (nieuwe) store.selecteer(nieuwe);
         return;
       }
-      case 'rechthoek':
-        this.actie = { type: 'rect', start: snapPunt(w, store.project.plan.raster), huidig: null };
-        return;
-      case 'polygoon': {
-        const p = snapPunt(w, store.project.plan.raster);
-        const bezig = ui.bezigPolygoon ? [...ui.bezigPolygoon] : [];
-        if (bezig.length > 2 && afstand(p, bezig[0]) < 0.35) { this.sluitPolygoon(); return; }
-        bezig.push(p);
-        store.setUI({ bezigPolygoon: bezig });
+      case 'rechthoek': {
+        const p = this.tekenpunt(w, null, e.altKey);
+        if (!ui.bezigRechthoek) {
+          store.setUI({ bezigRechthoek: { x: p.x, y: p.y }, lengteInvoer: '' });
+          this.actie = { type: 'rect', start: p, gesleept: false };
+        } else {
+          this.voltooiRechthoek(p);
+        }
         return;
       }
-      case 'muur':
-        this.actie = { type: 'muur', start: snapPunt(w, store.project.plan.raster), huidig: null, dikte: 0.1 };
+      case 'polygoon': {
+        const bezig = ui.bezigPolygoon ? [...ui.bezigPolygoon] : [];
+        const vorig = bezig.length ? bezig[bezig.length - 1] : null;
+        const p = this.tekenpunt(w, vorig, e.altKey);
+        if (bezig.length > 2 && afstand(p, bezig[0]) < Math.max(0.3, 16 / this.view.zoom)) {
+          this.sluitPolygoon();
+          return;
+        }
+        bezig.push({ x: p.x, y: p.y });
+        store.setUI({ bezigPolygoon: bezig, lengteInvoer: '' });
         return;
+      }
+      case 'muur': {
+        const p = this.tekenpunt(w, ui.bezigMuur || null, e.altKey);
+        if (!ui.bezigMuur) {
+          store.setUI({ bezigMuur: { x: p.x, y: p.y }, lengteInvoer: '' });
+          this.actie = { type: 'muur', start: p, gesleept: false };
+        } else {
+          this.voltooiMuur(p);
+        }
+        return;
+      }
       case 'verbind': {
         if (kind === 'component') this.verbindKlik(id);
         return;
@@ -490,9 +695,25 @@ export class PlanCanvas {
     };
   }
 
+  /** Berekent het gemagnetiseerde punt onder de cursor voor het actieve gereedschap. */
+  berekenAanwijzer(vrij = false) {
+    const ui = store.ui;
+    const w = this.muisWereld;
+    if (!w) return null;
+    if (ui.tool === 'polygoon') {
+      const bezig = ui.bezigPolygoon || [];
+      return this.tekenpunt(w, bezig.length ? bezig[bezig.length - 1] : null, vrij);
+    }
+    if (ui.tool === 'muur') return this.tekenpunt(w, ui.bezigMuur || null, vrij);
+    if (ui.tool === 'rechthoek') return this.tekenpunt(w, null, vrij);
+    return null;
+  }
+
   onMove(e) {
     if (this.pointers.has(e.pointerId)) this.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     this.muisWereld = this.wereldPunt(e);
+    this.aanwijzer = this.berekenAanwijzer(!!e.altKey);
+    if (this.onAanwijzer) this.onAanwijzer();
 
     if (this.pointers.size === 2 && this.pinch) {
       const [a, b] = [...this.pointers.values()];
@@ -509,7 +730,10 @@ export class PlanCanvas {
     }
 
     const a = this.actie;
-    if (!a) { if (store.ui.tool === 'plaats' || store.ui.bezigPolygoon) this.plan(); return; }
+    if (!a) {
+      if (['plaats', 'polygoon', 'muur', 'rechthoek'].includes(store.ui.tool)) this.plan();
+      return;
+    }
     const w = this.muisWereld;
     const raster = store.project.plan.raster;
 
@@ -521,11 +745,8 @@ export class PlanCanvas {
         break;
       }
       case 'rect':
-        a.huidig = snapPunt(e.shiftKey ? orthogonaal(a.start, w) : w, raster);
-        this.plan();
-        break;
       case 'muur':
-        a.huidig = snapPunt(e.shiftKey ? orthogonaal(a.start, w) : w, raster);
+        a.gesleept = afstand(a.start, w) > 0.4;
         this.plan();
         break;
       case 'rubber':
@@ -577,20 +798,12 @@ export class PlanCanvas {
     if (!a) return;
 
     switch (a.type) {
-      case 'rect': {
-        if (!a.huidig) break;
-        const b = omhullende(rechthoek(a.start, a.huidig));
-        if (b.w < 0.3 || b.h < 0.3) break;
-        this.maakRuimte(rechthoek(a.start, a.huidig));
+      case 'rect':
+        if (a.gesleept && this.aanwijzer) this.voltooiRechthoek(this.aanwijzer);
         break;
-      }
-      case 'muur': {
-        if (!a.huidig || afstand(a.start, a.huidig) < 0.2) break;
-        store.commit('muur getekend', (p) => {
-          p.plan.muren.push({ id: uid('mur'), a: a.start, b: a.huidig, dikte: a.dikte || 0.1 });
-        });
+      case 'muur':
+        if (a.gesleept && this.aanwijzer) this.voltooiMuur(this.aanwijzer);
         break;
-      }
       case 'rubber': {
         if (!a.huidig) break;
         const b = omhullende([a.start, a.huidig]);
@@ -647,6 +860,65 @@ export class PlanCanvas {
     store.selecteer(id);
     this.herberekenRuimtes();
     return id;
+  }
+
+  voltooiRechthoek(p) {
+    const start = store.ui.bezigRechthoek;
+    store.setUI({ bezigRechthoek: null, lengteInvoer: '' });
+    if (!start) return;
+    const hoeken = rechthoek(start, p);
+    const box = omhullende(hoeken);
+    if (box.w < 0.25 || box.h < 0.25) return;
+    this.maakRuimte(hoeken);
+  }
+
+  voltooiMuur(p) {
+    const start = store.ui.bezigMuur;
+    store.setUI({ bezigMuur: null, lengteInvoer: '' });
+    if (!start || afstand(start, p) < 0.15) return;
+    store.commit('muur getekend', (prj) => {
+      prj.plan.muren.push({ id: uid('mur'), a: { x: start.x, y: start.y }, b: { x: p.x, y: p.y }, dikte: 0.1 });
+    });
+  }
+
+  /** Zet het volgende punt op een exact ingetypte lengte. */
+  plaatsOpLengte(lengte) {
+    const ui = store.ui;
+    const richting = this.aanwijzer || this.muisWereld;
+    if (!(lengte > 0) || !richting) return false;
+    if (ui.tool === 'polygoon' && ui.bezigPolygoon && ui.bezigPolygoon.length) {
+      const vorig = ui.bezigPolygoon[ui.bezigPolygoon.length - 1];
+      store.setUI({ bezigPolygoon: [...ui.bezigPolygoon, this.puntOpLengte(vorig, richting, lengte)], lengteInvoer: '' });
+      return true;
+    }
+    if (ui.tool === 'muur' && ui.bezigMuur) {
+      this.voltooiMuur(this.puntOpLengte(ui.bezigMuur, richting, lengte));
+      return true;
+    }
+    if (ui.tool === 'rechthoek' && ui.bezigRechthoek) {
+      this.voltooiRechthoek(this.puntOpLengte(ui.bezigRechthoek, richting, lengte));
+      return true;
+    }
+    return false;
+  }
+
+  /** Laatst geplaatste punt terugnemen tijdens het tekenen. */
+  verwijderLaatstePunt() {
+    const ui = store.ui;
+    if (ui.bezigPolygoon && ui.bezigPolygoon.length) {
+      const rest = ui.bezigPolygoon.slice(0, -1);
+      store.setUI({ bezigPolygoon: rest.length ? rest : null });
+      return true;
+    }
+    if (ui.bezigMuur) { store.setUI({ bezigMuur: null }); return true; }
+    if (ui.bezigRechthoek) { store.setUI({ bezigRechthoek: null }); return true; }
+    return false;
+  }
+
+  /** Alles wat half getekend is loslaten. */
+  stopTekenen() {
+    store.setUI({ bezigPolygoon: null, bezigMuur: null, bezigRechthoek: null, lengteInvoer: '' });
+    this.actie = null;
   }
 
   sluitPolygoon() {

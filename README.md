@@ -64,12 +64,24 @@ service worker.
 ## Werken met de app
 
 ### Stap 1 — situatieschema
-* **Ruimte**: sleep een rechthoek. **Vorm**: klik punt per punt, dubbelklik of
-  <kbd>Enter</kbd> sluit de vorm. **Muur**: losse binnenmuur tekenen.
+* **Ruimte**: klik twee hoeken (of sleep). **Vorm**: klik punt per punt,
+  <kbd>Enter</kbd> of een klik op het eerste punt sluit de vorm. **Muur**: losse
+  binnenmuur.
+* Tijdens het tekenen zie je onderaan de **lengte en de hoek** van de lijn die je
+  trekt, en staat de maat ook bij de lijn zelf. Richtingen springen vast op 45°,
+  zodat lijnen recht blijven; houd <kbd>Alt</kbd> ingedrukt om vrij te tekenen.
+* Typ een **lengte in meter** en druk <kbd>Enter</kbd> om een punt op een exacte
+  maat te zetten. <kbd>Backspace</kbd> neemt het laatste punt terug.
+* Hoekpunten van bestaande ruimtes trekken aan, zodat kamers exact op elkaar
+  aansluiten.
+* **Deuren, ramen, doorgangen, een garagepoort en een trap** klik je in de muur;
+  ze snijden de muur open en worden op ware breedte getekend. Breedte en diepte
+  pas je rechts aan.
 * Sleep een geselecteerde ruimte om ze te verplaatsen (de componenten erin gaan
-  mee); sleep de hoekpunten om ze te vervormen.
-* Rechts stel je naam, type en kleur in. Het ruimtetype bepaalt mee of een kring
-  achter een differentieel van 30 mA hoort (badkamer, wasplaats, buiten …).
+  mee); sleep de hoekpunten om ze te vervormen. Voor een rechthoekige ruimte kan
+  je rechts de **exacte breedte en diepte** invullen.
+* Het ruimtetype bepaalt mee of een kring achter een differentieel van 30 mA
+  hoort (badkamer, wasplaats, buiten …).
 
 ### Stap 2 — componenten
 * Kies een symbool uit het palet en klik op het plan; het gereedschap blijft
@@ -93,8 +105,20 @@ service worker.
   hebben.
 
 ### Verdeelbord
-Het tabblad *Verdeelbord* toont het eendraadschema van teller tot kring, en
-daaronder per zekering welke componenten erop zitten, gegroepeerd per ruimte.
+Het tabblad *Verdeelbord* toont het **eendraadschema** van kWh-teller en
+aardelektrode over hoofdautomaat en differentieel tot elke kring, met het
+AREI-symbool van de automaat (curve + stroomsterkte), de kabelaanduiding
+(bv. `3G2,5` met het aantal geleiders) en de symbolen van de aangesloten
+componenten. Daaronder staat per zekering welke componenten erop zitten,
+gegroepeerd per ruimte.
+
+### Symbolen
+De symbolen volgen **AREI Boek 1, tabel 2.23** (grafische symbolen), dezelfde
+norm die Trikker en Tricity gebruiken: lichtpunt als kruis in een cirkel,
+schakelaars als cirkel met hefboom (streepjes = aantal polen), contactdozen als
+boog met steel en aardingsstreep, vaste toestellen als rechthoek met het
+pictogram van het toestel. Via *Menu → Symbolenlegende* zie je alle symbolen met
+hun naam; die lijst kan je ook afdrukken.
 
 ### Bewaren en delen
 * Het project wordt automatisch in de browser bewaard.
@@ -117,6 +141,8 @@ daaronder per zekering welke componenten erop zitten, gegroepeerd per ruimte.
 | <kbd>Ctrl</kbd>+<kbd>S</kbd> | project opslaan |
 | <kbd>0</kbd> <kbd>+</kbd> <kbd>−</kbd> | alles in beeld / zoomen |
 | pijltjes | selectie verplaatsen |
+| cijfers tijdens tekenen | exacte lengte intypen, <kbd>Enter</kbd> plaatst het punt |
+| <kbd>Alt</kbd> | vrij tekenen (geen hoek- of rastervastzetting) |
 
 Op iPad: één vinger sleept het plan, twee vingers zoomen, tikken selecteert.
 

@@ -52,6 +52,7 @@
     <button data-app="print">Afdrukken / PDF</button>
     <hr>
     <button data-app="voorbeeld">Voorbeeldwoning laden</button>
+    <button data-app="legende">Symbolenlegende (AREI)</button>
     <button data-app="help">Uitleg &amp; sneltoetsen</button>
   </div>
 </header>
@@ -61,6 +62,7 @@
 
   <section class="tekenvlak">
     <svg id="plan" class="plan" xmlns="http://www.w3.org/2000/svg"></svg>
+    <div id="teken-hud" class="teken-hud" hidden></div>
     <div class="zoomknoppen">
       <button class="icoonknop" data-app="zoom-in" title="Inzoomen">+</button>
       <button class="icoonknop" data-app="zoom-uit" title="Uitzoomen">−</button>
@@ -96,6 +98,17 @@
   <div class="dialoog-knoppen">
     <button class="knop" data-app="voorbeeld">Voorbeeldwoning bekijken</button>
     <button class="knop primair" data-app="sluit-welkom">Zelf beginnen</button>
+  </div>
+</dialog>
+
+<dialog id="legende" class="dialoog breed">
+  <h2>Symbolenlegende</h2>
+  <p class="dialoog-intro">Grafische symbolen volgens AREI Boek 1, tabel 2.23, zoals ze op het situatieschema
+    getekend worden. De onderkant van elk wandsymbool staat tegen de muur.</p>
+  <div id="legende-inhoud" class="legende"></div>
+  <div class="dialoog-knoppen">
+    <button class="knop" data-app="print-legende">Legende afdrukken</button>
+    <button class="knop primair" data-app="sluit-legende">Sluiten</button>
   </div>
 </dialog>
 

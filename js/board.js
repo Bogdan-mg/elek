@@ -7,9 +7,40 @@ import { componentenVanKring, puntenInKring, vermogenVanKring } from './circuits
 import { symbool } from './symbols.js';
 import { escape } from './canvas.js';
 
-const KOL = 132;    // kolombreedte per kring
-const KOP = 96;     // hoogte van het kopblok (teller + hoofdautomaat)
-const RIJ = 232;    // hoogte van een differentieelblok
+const KOL = 140;    // kolombreedte per kring
+const KOP = 104;    // hoogte van het kopblok (teller + hoofdautomaat)
+const RIJ = 336;   // hoogte van een differentieelblok
+
+/** Kabelaanduiding volgens AREI: aantal geleiders + doorsnede, bv. 3G2,5. */
+export function kabelTekst(kring, fasen = 1) {
+  const geleiders = kring.type === 'vast' && kring.amp >= 32 && fasen === 3 ? 5 : 3;
+  return `${geleiders}G${String(kring.mm2).replace('.', ',')}`;
+}
+
+/**
+ * Automatische schakelaar (AREI D): inkomende lijn, scharnierpunt en
+ * gebogen hefboom, met de uitgaande lijn eronder.
+ */
+function automaatGlyph(x, y, kleur, lijn = 2.2) {
+  return `<line x1="${x}" y1="${y}" x2="${x}" y2="${y + 9}" stroke="${kleur}" stroke-width="${lijn}"/>` +
+    `<circle cx="${x}" cy="${y + 9}" r="3.4" fill="${kleur}"/>` +
+    `<path d="M ${x} ${y + 9} q -11 10 -9 21" fill="none" stroke="${kleur}" stroke-width="${lijn}" stroke-linecap="round"/>` +
+    `<line x1="${x}" y1="${y + 30}" x2="${x}" y2="${y + 42}" stroke="${kleur}" stroke-width="${lijn}"/>`;
+}
+
+/** Differentieel (AREI D): automaatsymbool met de ringkern. */
+function differentieelGlyph(x, y, kleur) {
+  return automaatGlyph(x, y, kleur, 2.4) +
+    `<ellipse cx="${x + 13}" cy="${y + 22}" rx="15" ry="7" fill="none" stroke="${kleur}" stroke-width="2" ` +
+    `transform="rotate(-18 ${x + 13} ${y + 22})"/>` +
+    `<line x1="${x - 4}" y1="${y + 22}" x2="${x + 6}" y2="${y + 22}" stroke="${kleur}" stroke-width="1.6" stroke-dasharray="3 3"/>`;
+}
+
+/** Leiding met n geleiders (AREI C): schuine streep met het aantal. */
+function leidingGlyph(x, y, aantal, kleur) {
+  return `<line x1="${x - 9}" y1="${y + 8}" x2="${x + 9}" y2="${y - 8}" stroke="${kleur}" stroke-width="1.8"/>` +
+    `<text x="${x + 12}" y="${y - 6}" font-size="10" fill="var(--tekst-zacht)">${aantal}</text>`;
+}
 
 function tekstRegels(tekst, max = 18) {
   const woorden = String(tekst).split(' ');
@@ -42,69 +73,78 @@ export function bouwBordSVG(project = store.project) {
   let s = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${breedte} ${hoogte}" width="${breedte}" height="${hoogte}" class="bord-svg" font-family="system-ui, sans-serif">`;
   s += `<rect x="0" y="0" width="${breedte}" height="${hoogte}" fill="var(--vlak)"/>`;
 
-  const xStart = 60;
-  // Kopblok: teller en hoofdautomaat
-  s += `<g stroke="var(--symbool)" stroke-width="2" fill="none">`;
-  s += `<circle cx="${xStart}" cy="30" r="20" fill="var(--sym-fill)"/>`;
-  s += `<line x1="${xStart}" y1="50" x2="${xStart}" y2="${KOP - 10}"/>`;
-  s += `<rect x="${xStart - 22}" y="${KOP - 10}" width="44" height="26" rx="4" fill="var(--sym-fill)"/>`;
-  s += `</g>`;
-  s += `<text x="${xStart}" y="31" text-anchor="middle" dominant-baseline="central" font-size="11" font-weight="600" fill="var(--tekst)">kWh</text>`;
-  s += `<text x="${xStart}" y="${KOP + 4}" text-anchor="middle" dominant-baseline="central" font-size="12" font-weight="700" fill="var(--tekst)">${project.net.hoofdzekering}A</text>`;
-  s += `<text x="${xStart + 34}" y="20" font-size="12" fill="var(--tekst-zacht)">${project.net.fasen === 3 ? '3F+N 400 V' : '1F+N 230 V'} · hoofdzekering ${project.net.hoofdzekering} A</text>`;
-  s += `<text x="${xStart + 34}" y="38" font-size="12" fill="var(--tekst-zacht)">${escape(project.naam || '')}</text>`;
+  const xStart = 64;
+  const kleurLijn = 'var(--symbool)';
+  // Kopblok: kWh-teller en hoofdautomaat (AREI G en D)
+  s += `<rect x="${xStart - 24}" y="12" width="48" height="32" fill="var(--sym-fill)" stroke="${kleurLijn}" stroke-width="2"/>`;
+  s += `<text x="${xStart}" y="29" text-anchor="middle" dominant-baseline="central" font-size="12" font-weight="600" fill="var(--tekst)">kWh</text>`;
+  s += `<line x1="${xStart}" y1="44" x2="${xStart}" y2="52" stroke="${kleurLijn}" stroke-width="2"/>`;
+  s += automaatGlyph(xStart, 52, kleurLijn);
+  s += `<text x="${xStart + 16}" y="74" font-size="12" font-weight="700" fill="var(--tekst)">${project.net.hoofdzekering} A</text>`;
+  s += `<text x="${xStart + 46}" y="24" font-size="12" fill="var(--tekst-zacht)">${project.net.fasen === 3 ? '3F+N 400 V ~ 50 Hz' : '1F+N 230 V ~ 50 Hz'}</text>`;
+  s += `<text x="${xStart + 46}" y="41" font-size="12" font-weight="600" fill="var(--tekst)">${escape(project.naam || '')}</text>`;
+  // aardelektrode
+  s += `<line x1="${xStart - 46}" y1="28" x2="${xStart - 24}" y2="28" stroke="${kleurLijn}" stroke-width="2"/>`;
+  s += `<line x1="${xStart - 46}" y1="28" x2="${xStart - 46}" y2="50" stroke="${kleurLijn}" stroke-width="2"/>`;
+  s += `<line x1="${xStart - 58}" y1="50" x2="${xStart - 34}" y2="50" stroke="${kleurLijn}" stroke-width="2"/>`;
+  s += `<line x1="${xStart - 53}" y1="56" x2="${xStart - 39}" y2="56" stroke="${kleurLijn}" stroke-width="2"/>`;
+  s += `<line x1="${xStart - 49}" y1="62" x2="${xStart - 43}" y2="62" stroke="${kleurLijn}" stroke-width="2"/>`;
 
   let y = KOP + 30;
   for (const blok of blokken) {
     const barY = y + 58;
     // Verticale voeding naar het differentieel
     s += `<line x1="${xStart}" y1="${y - 14}" x2="${xStart}" y2="${y + 16}" stroke="var(--symbool)" stroke-width="2"/>`;
-    // Differentieelblok
+    // Differentieel (AREI D)
     if (blok.dif) {
       const g = blok.dif.gevoeligheid;
       const kleur = g <= 30 ? 'var(--accent)' : 'var(--symbool)';
-      s += `<rect x="${xStart - 16}" y="${y + 16}" width="168" height="30" rx="5" fill="var(--sym-fill)" stroke="${kleur}" stroke-width="2"/>`;
-      s += `<text x="${xStart + 68}" y="${y + 31}" text-anchor="middle" dominant-baseline="central" font-size="12" font-weight="600" fill="var(--tekst)">` +
-        `Δ ${g} mA · ${blok.dif.amp} A · type ${blok.dif.type || 'A'}</text>`;
-      s += `<line x1="${xStart}" y1="${y + 46}" x2="${xStart}" y2="${barY}" stroke="var(--symbool)" stroke-width="2"/>`;
+      s += differentieelGlyph(xStart, y + 8, kleur);
+      s += `<text x="${xStart + 42}" y="${y + 22}" font-size="12" font-weight="700" fill="var(--tekst)">${blok.dif.amp} A · Δ${g} mA</text>`;
+      s += `<text x="${xStart + 42}" y="${y + 38}" font-size="11" fill="var(--tekst-zacht)">type ${blok.dif.type || 'A'} · ${escape(blok.dif.naam)}</text>`;
+      s += `<line x1="${xStart}" y1="${y + 50}" x2="${xStart}" y2="${barY}" stroke="var(--symbool)" stroke-width="2"/>`;
     } else {
       s += `<text x="${xStart + 14}" y="${y + 34}" font-size="12" fill="var(--fout)">Zonder differentieel</text>`;
       s += `<line x1="${xStart}" y1="${y + 40}" x2="${xStart}" y2="${barY}" stroke="var(--fout)" stroke-width="2"/>`;
     }
 
     // Rail
-    const laatsteX = xStart + 60 + (blok.kringen.length - 1) * KOL;
+    const laatsteX = xStart + 64 + (blok.kringen.length - 1) * KOL;
     s += `<line x1="${xStart}" y1="${barY}" x2="${Math.max(laatsteX, xStart + 40)}" y2="${barY}" stroke="var(--symbool)" stroke-width="3"/>`;
 
     blok.kringen.forEach((k, i) => {
-      const x = xStart + 60 + i * KOL;
+      const x = xStart + 64 + i * KOL;
       const comps = componentenVanKring(project, k.id);
-      s += `<line x1="${x}" y1="${barY}" x2="${x}" y2="${barY + 24}" stroke="${k.kleur}" stroke-width="2.5"/>`;
-      // Automaat
-      s += `<rect x="${x - 26}" y="${barY + 24}" width="52" height="30" rx="5" fill="var(--sym-fill)" stroke="${k.kleur}" stroke-width="2.5"/>`;
-      s += `<text x="${x}" y="${barY + 39}" text-anchor="middle" dominant-baseline="central" font-size="13" font-weight="700" fill="var(--tekst)">${k.amp} A</text>`;
-      s += `<text x="${x + 32}" y="${barY + 32}" font-size="10" fill="var(--tekst-zacht)">${k.curve || 'C'}</text>`;
-      // Kabel
-      s += `<line x1="${x}" y1="${barY + 54}" x2="${x}" y2="${barY + 76}" stroke="${k.kleur}" stroke-width="2.5"/>`;
-      s += `<text x="${x + 6}" y="${barY + 70}" font-size="10" fill="var(--tekst-zacht)">${k.mm2} mm²</text>`;
+      s += `<line x1="${x}" y1="${barY}" x2="${x}" y2="${barY + 16}" stroke="${k.kleur}" stroke-width="2.5"/>`;
+      // Automatische schakelaar volgens AREI, met curve en stroomsterkte
+      s += automaatGlyph(x, barY + 16, k.kleur, 2.5);
+      s += `<text x="${x + 14}" y="${barY + 38}" font-size="12" font-weight="700" fill="var(--tekst)">${k.curve || 'C'}${k.amp}</text>`;
+      // Leiding met aantal geleiders en doorsnede
+      s += `<line x1="${x}" y1="${barY + 58}" x2="${x}" y2="${barY + 92}" stroke="${k.kleur}" stroke-width="2.5"/>`;
+      s += leidingGlyph(x, barY + 72, project.net.fasen === 3 && k.amp >= 32 ? 5 : 3, k.kleur);
+      s += `<text x="${x + 12}" y="${barY + 88}" font-size="10" fill="var(--tekst-zacht)">${kabelTekst(k, project.net.fasen)}</text>`;
       // Kringnummer en naam
-      s += `<circle cx="${x}" cy="${barY + 88}" r="11" fill="${k.kleur}"/>`;
-      s += `<text x="${x}" y="${barY + 88}" text-anchor="middle" dominant-baseline="central" font-size="11" font-weight="700" fill="#fff">${k.nummer}</text>`;
-      tekstRegels(k.naam, 16).forEach((regel, ri) => {
-        s += `<text x="${x}" y="${barY + 108 + ri * 13}" text-anchor="middle" font-size="11" fill="var(--tekst)">${escape(regel)}</text>`;
+      s += `<circle cx="${x}" cy="${barY + 106}" r="11" fill="${k.kleur}"/>`;
+      s += `<text x="${x}" y="${barY + 106}" text-anchor="middle" dominant-baseline="central" font-size="11" font-weight="700" fill="#fff">${k.nummer}</text>`;
+      tekstRegels(k.naam, 17).forEach((regel, ri) => {
+        s += `<text x="${x}" y="${barY + 128 + ri * 13}" text-anchor="middle" font-size="11" fill="var(--tekst)">${escape(regel)}</text>`;
       });
-      // Symbolen van de aangesloten componenten
+      // Symbolen van de aangesloten componenten, met aantal
       const perType = new Map();
       for (const c of comps) perType.set(c.type, (perType.get(c.type) || 0) + 1);
-      const types = [...perType.entries()].slice(0, 4);
+      const types = [...perType.entries()].slice(0, 6);
       types.forEach(([type, aantal], ti) => {
-        const sx = x - ((types.length - 1) * 26) / 2 + ti * 26;
-        const sy = barY + 152;
-        s += `<g transform="translate(${sx} ${sy}) scale(0.16)" fill="none" stroke="${k.kleur}" stroke-width="8">${symbool(type)}</g>`;
-        if (aantal > 1) s += `<text x="${sx + 11}" y="${sy + 13}" font-size="9" font-weight="700" fill="var(--tekst)">${aantal}</text>`;
+        const rij = Math.floor(ti / 3);
+        const kol = ti % 3;
+        const inRij = Math.min(3, types.length - rij * 3);
+        const sx = x - ((inRij - 1) * 32) / 2 + kol * 32;
+        const sy = barY + 180 + rij * 30;
+        s += `<g transform="translate(${sx} ${sy}) scale(0.17)" fill="none" stroke="${k.kleur}" stroke-width="7" ` +
+          `stroke-linecap="round" stroke-linejoin="round">${symbool(type)}</g>`;
+        if (aantal > 1) s += `<text x="${sx + 13}" y="${sy + 14}" font-size="10" font-weight="700" fill="var(--tekst)">${aantal}×</text>`;
       });
       const punten = puntenInKring(project, k.id);
-      s += `<text x="${x}" y="${barY + 178}" text-anchor="middle" font-size="10" fill="var(--tekst-zacht)">${comps.length} comp. · ${punten} pt</text>`;
+      s += `<text x="${x}" y="${barY + 244}" text-anchor="middle" font-size="10" fill="var(--tekst-zacht)">${comps.length} comp. · ${punten} pt</text>`;
     });
 
     y += RIJ;

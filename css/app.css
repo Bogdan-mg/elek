@@ -358,3 +358,36 @@ kbd { background: var(--vlak-3); border: 1px solid var(--rand); border-radius: 5
 
 .mini.toewijs { font-size: 15px; line-height: 1; padding: 3px 6px; color: var(--tekst-zacht); }
 .mini.toewijs.aan { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+/* Symbolenlegende */
+.dialoog.breed { max-width: 900px; }
+.dialoog-intro { font-size: 13px; color: var(--tekst-zacht); margin: 0 0 14px; }
+.legende { max-height: 62vh; overflow-y: auto; }
+.legende h3 { position: sticky; top: 0; background: var(--vlak); padding: 8px 0 5px; z-index: 1; }
+.legende-groep { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 8px; margin-bottom: 6px; }
+.legende-item {
+  display: flex; flex-direction: column; align-items: center; gap: 5px; text-align: center;
+  border: 1px solid var(--rand); border-radius: 10px; padding: 9px 6px; background: var(--vlak-2);
+}
+.legende-item .sym { color: var(--symbool); display: grid; place-items: center; height: 46px; }
+.legende-item span { font-size: 10.5px; line-height: 1.25; color: var(--tekst-zacht); }
+
+@media print {
+  body.afdrukken .print-legende .legende-groep { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4mm; }
+  body.afdrukken .print-legende .legende-item { border: 1px solid #ccc; break-inside: avoid; page-break-inside: avoid; }
+  body.afdrukken .print-legende h3 { font-size: 10pt; margin: 4mm 0 2mm; }
+}
+
+/* Maatweergave tijdens het tekenen */
+.teken-hud {
+  position: absolute; left: 50%; transform: translateX(-50%);
+  bottom: calc(14px + env(safe-area-inset-bottom));
+  display: flex; align-items: center; gap: 10px; max-width: calc(100% - 100px);
+  padding: 8px 14px; border-radius: 999px; border: 1px solid var(--rand);
+  background: var(--vlak); box-shadow: var(--schaduw); font-size: 13px; pointer-events: none;
+}
+.teken-hud[hidden] { display: none; }
+.teken-hud b { font-variant-numeric: tabular-nums; font-size: 15px; }
+.teken-hud .hud-invoer { color: var(--accent); font-weight: 700; }
+.teken-hud .hud-tip { color: var(--tekst-zacht); font-size: 11.5px; }
+@media (max-width: 620px) { .teken-hud .hud-tip { display: none; } }

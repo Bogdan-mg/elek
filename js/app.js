@@ -4,8 +4,9 @@ import store from './store.js';
 import { PlanCanvas } from './canvas.js';
 import { tekenLinks, tekenRechts, bindPanelen, koppelCanvas, verwijderSelectie, dupliceerSelectie } from './panels.js';
 import { bouwBordSVG, bouwBordTabel } from './board.js';
-import { exporteerProject, importeerProject, exporteerPNG, exporteerSVG, drukAf } from './exporters.js';
-import { nieuwProject, uid, def } from './model.js';
+import { exporteerProject, importeerProject, exporteerPNG, exporteerSVG, drukAf, drukAfLegende } from './exporters.js';
+import { nieuwProject, uid, def, CATALOG, GROEPEN } from './model.js';
+import { symboolIcoon } from './symbols.js';
 import { autoVerdeel } from './circuits.js';
 
 const $ = (sel) => document.querySelector(sel);
@@ -18,8 +19,11 @@ function start() {
   bindWerkbalk();
   bindToetsen();
 
+  canvas.onAanwijzer = werkHudBij;
+
   store.on((reden) => {
     canvas.plan();
+    werkHudBij();
     if (reden === 'project-licht') return;
     tekenLinks();
     tekenRechts();
@@ -78,6 +82,12 @@ function bindWerkbalk() {
         document.body.classList.remove('links-open', 'rechts-open', 'menu-open');
         break;
       case 'voorbeeld': laadVoorbeeld(); break;
+      case 'legende':
+        $('#legende-inhoud').innerHTML = bouwLegende();
+        $('#legende').showModal();
+        break;
+      case 'sluit-legende': $('#legende').close(); break;
+      case 'print-legende': drukAfLegende(); break;
       case 'sluit-welkom': $('#welkom').close(); break;
       case 'help': $('#help').showModal(); break;
       case 'sluit-help': $('#help').close(); break;
@@ -131,6 +141,51 @@ function werkbalkBij() {
   $('#projectnaam').textContent = store.project.naam || 'Zonder naam';
 }
 
+/** Toont lengte, hoek en de ingetypte maat tijdens het tekenen. */
+function werkHudBij() {
+  const hud = $('#teken-hud');
+  if (!hud) return;
+  const ui = store.ui;
+  const punt = canvas.aanwijzer;
+  const invoer = ui.lengteInvoer || '';
+  let vorig = null;
+  let soort = null;
+  if (ui.tool === 'polygoon' && ui.bezigPolygoon && ui.bezigPolygoon.length) {
+    vorig = ui.bezigPolygoon[ui.bezigPolygoon.length - 1];
+    soort = 'vorm';
+  } else if (ui.tool === 'muur' && ui.bezigMuur) {
+    vorig = ui.bezigMuur;
+    soort = 'muur';
+  } else if (ui.tool === 'rechthoek' && ui.bezigRechthoek) {
+    vorig = ui.bezigRechthoek;
+    soort = 'rechthoek';
+  }
+  if (!soort) {
+    if (['polygoon', 'muur', 'rechthoek'].includes(ui.tool)) {
+      hud.hidden = false;
+      hud.innerHTML = '<span class="hud-tip">Klik het eerste punt. Richtingen springen op 45°, houd Alt voor vrij tekenen.</span>';
+    } else {
+      hud.hidden = true;
+    }
+    return;
+  }
+  hud.hidden = false;
+  let maat = '—';
+  if (punt) {
+    if (soort === 'rechthoek') {
+      maat = `${Math.abs(punt.x - vorig.x).toFixed(2)} × ${Math.abs(punt.y - vorig.y).toFixed(2)} m`;
+    } else {
+      maat = `${canvas.maatVan(vorig, punt).toFixed(2)} m · ${canvas.hoekVan(vorig, punt)}°`;
+    }
+  }
+  const tip = soort === 'vorm'
+    ? 'Enter sluit de vorm · Backspace neemt een punt terug'
+    : 'Klik het tweede punt · Backspace annuleert';
+  hud.innerHTML = `<b>${maat}</b>` +
+    (invoer ? `<span class="hud-invoer">${invoer} m → Enter</span>` : '<span class="hud-tip">typ een lengte + Enter</span>') +
+    `<span class="hud-tip">${tip}</span>`;
+}
+
 function tekenBord() {
   $('#bord-schema').innerHTML = bouwBordSVG(store.project);
   $('#bord-lijst').innerHTML = bouwBordTabel(store.project);
@@ -154,9 +209,33 @@ function bindToetsen() {
     if (meta && e.key.toLowerCase() === 'd') { e.preventDefault(); dupliceerSelectie(); return; }
     if (inVeld) return;
 
+    // Tijdens het tekenen: exacte lengte intypen
+    const bezig = store.ui.bezigPolygoon || store.ui.bezigMuur || store.ui.bezigRechthoek;
+    if (bezig) {
+      if (/^[0-9]$/.test(e.key) || e.key === '.' || e.key === ',') {
+        e.preventDefault();
+        store.setUI({ lengteInvoer: (store.ui.lengteInvoer || '') + e.key.replace(',', '.') });
+        return;
+      }
+      if (e.key === 'Backspace') {
+        e.preventDefault();
+        if (store.ui.lengteInvoer) store.setUI({ lengteInvoer: store.ui.lengteInvoer.slice(0, -1) });
+        else canvas.verwijderLaatstePunt();
+        return;
+      }
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const lengte = parseFloat(store.ui.lengteInvoer);
+        if (lengte > 0) canvas.plaatsOpLengte(lengte);
+        else if (store.ui.bezigPolygoon) canvas.sluitPolygoon();
+        return;
+      }
+    }
+
     switch (e.key) {
       case 'Escape':
-        store.setUI({ tool: 'select', bezigPolygoon: null, verbindBron: null, actieveKring: null });
+        canvas.stopTekenen();
+        store.setUI({ tool: 'select', verbindBron: null, actieveKring: null });
         store.selecteer([]);
         document.body.classList.remove('links-open', 'rechts-open', 'menu-open');
         break;
@@ -226,8 +305,17 @@ const VOORBEELD_COMPONENTEN = [
   ['kookplaat', 6.8, 0.05], ['oven', 8.6, 0.6], ['vaatwas', 5.4, 0.05],
   ['wasmachine', 5.05, 6.4], ['boiler', 4.2, 6.9],
   ['koelkast', 8.95, 2.2], ['dampkap', 6.8, 0.4],
-  ['utp', 2.2, 0.05], ['coax', 2.6, 0.05], ['rookmelder', 1.5, 5.2],
+  ['utp', 4.2, 0.05], ['coax', 4.6, 0.05], ['rookmelder', 1.2, 5.2],
   ['verdeelbord', 0.05, 5.4], ['teller', 0.05, 4.9],
+];
+
+// Deuren, ramen en trap van de voorbeeldwoning
+const VOORBEELD_BOUW = [
+  ['deur', 1.5, 7], ['deur', 1.2, 4.5], ['deur', 3, 5.8], ['deur', 7.5, 4.5],
+  ['doorgang', 5, 2.2],
+  ['raam', 2.4, 0], ['raam', 8.3, 0], ['raam', 7.2, 7], ['raam', 4.8, 7],
+  ['terrasdeur', 0, 3.4],
+  ['trap', 2.45, 5.75],
 ];
 
 function laadVoorbeeld() {
@@ -244,14 +332,16 @@ function laadVoorbeeld() {
 
   // Componenten plaatsen met muur-snap en ruimtetoewijzing
   store.commit('voorbeeld ingevuld', (prj) => {
-    for (const [type, x, y] of VOORBEELD_COMPONENTEN) {
+    for (const [type, x, y] of [...VOORBEELD_BOUW, ...VOORBEELD_COMPONENTEN]) {
       const d = def(type);
       const pos = canvas.plaatsPositie({ x, y }, type);
       const ruimte = canvas.ruimteOp({ x: pos.x, y: pos.y }) || canvas.dichtstbijzijndeRuimte({ x: pos.x, y: pos.y });
       prj.componenten.push({
         id: uid('cmp'), type, x: pos.x, y: pos.y, rot: pos.rot, label: '',
         ruimteId: ruimte ? ruimte.id : null, kringId: null,
-        hoogte: d.hoogte ?? null, watt: d.watt ?? null, opmerking: '',
+        hoogte: d.hoogte ?? null, watt: d.watt ?? null,
+        breedte: type === 'trap' ? 0.85 : (d.breedte ?? null), diepte: type === 'trap' ? 2.2 : (d.diepte ?? null),
+        opmerking: '',
       });
     }
     autoVerdeel(prj);
@@ -261,6 +351,23 @@ function laadVoorbeeld() {
   if (dlg && dlg.open) dlg.close();
   zetStap(1);
   canvas.zoomNaarAlles();
+}
+
+/* ------------------------------------------------------------------ *
+ * Symbolenlegende
+ * ------------------------------------------------------------------ */
+export function bouwLegende() {
+  let h = '';
+  for (const groep of GROEPEN) {
+    const items = CATALOG.filter((c) => c.groep === groep);
+    if (!items.length) continue;
+    h += `<h3>${groep}</h3><div class="legende-groep">`;
+    for (const c of items) {
+      h += `<div class="legende-item"><span class="sym">${symboolIcoon(c.key, 40)}</span><span>${c.naam}</span></div>`;
+    }
+    h += '</div>';
+  }
+  return h;
 }
 
 /* ------------------------------------------------------------------ *

@@ -12,7 +12,12 @@ import {
   maakKring, verwijderKring, componentenVanKring, puntenInKring,
   autoVerdeel, controleer, maxPuntenVan, totaalVermogen, heeftKringNodig,
 } from './circuits.js';
-import { oppervlakte } from './geometry.js';
+import { oppervlakte, omhullende, afstand, segmenten } from './geometry.js';
+
+/** Omtrek van een polygoon. */
+function omtrek(punten) {
+  return segmenten(punten).reduce((s, [a, b]) => s + afstand(a, b), 0);
+}
 
 let planvlak = null;
 export function koppelCanvas(c) { planvlak = c; }
@@ -42,7 +47,7 @@ function paneelPlattegrond() {
   const ui = store.ui;
   const t = ui.tool;
   let h = `<div class="paneel-kop"><h2>1 · Situatieschema</h2>
-    <p>Teken eerst de ruimtes van de woning. Sleep een rechthoek of klik een vorm punt per punt.</p></div>
+    <p>Teken de ruimtes van de woning. Klik twee hoeken voor een rechthoek, of klik een vorm punt per punt.</p></div>
     <div class="tool-rij">
       ${gereedschapKnop('select', 'Selecteren', '⬉', t === 'select')}
       ${gereedschapKnop('rechthoek', 'Ruimte', '▭', t === 'rechthoek')}
@@ -56,11 +61,25 @@ function paneelPlattegrond() {
       ${RUIMTETYPES.map((r) => `<option value="${r.key}"${(ui.nieuweRuimteType || 'overig') === r.key ? ' selected' : ''}>${r.naam}</option>`).join('')}
     </select></label>`;
 
+  if (['rechthoek', 'polygoon', 'muur'].includes(t)) {
+    h += `<div class="hint">Tijdens het tekenen zie je de lengte en de hoek onderaan. Richtingen springen
+      vast op 45°, zodat lijnen recht blijven; houd <kbd>Alt</kbd> ingedrukt om vrij te tekenen. Typ een
+      lengte in meter en druk <kbd>Enter</kbd> voor een exacte maat. Hoekpunten van bestaande ruimtes
+      trekken aan, zodat kamers netjes aansluiten.</div>`;
+  }
   if (ui.bezigPolygoon && ui.bezigPolygoon.length) {
     h += `<div class="hint actief-hint">${ui.bezigPolygoon.length} punt(en) geplaatst ·
       <button class="mini" data-actie="sluit-polygoon">Vorm sluiten</button>
       <button class="mini" data-actie="stop-polygoon">Annuleren</button></div>`;
   }
+
+  h += `<div class="lijst-kop"><h3>Deuren, ramen en trap</h3></div><div class="palet">`;
+  for (const c of CATALOG.filter((x) => x.groep === 'Bouwkundig')) {
+    const actief = ui.tool === 'plaats' && ui.plaatsType === c.key;
+    h += `<button class="palet-knop${actief ? ' actief' : ''}" data-actie="plaats-type" data-type="${c.key}" title="${escape(c.naam)}">
+      ${symboolIcoon(c.key, 26)}<span>${escape(c.naam)}</span></button>`;
+  }
+  h += `</div><p class="voetnoot">Deuren en ramen klikken in de dichtstbijzijnde muur en snijden die open.</p>`;
 
   h += `<div class="lijst-kop"><h3>Ruimtes (${p.plan.ruimtes.length})</h3></div><ul class="lijst">`;
   if (!p.plan.ruimtes.length) h += '<li class="leeg">Nog geen ruimtes getekend.</li>';
@@ -78,6 +97,7 @@ function paneelPlattegrond() {
     <label class="schakel"><input type="checkbox" data-actie="ui" data-veld="toonRaster" ${store.ui.toonRaster ? 'checked' : ''}> Raster tonen</label>
     <label class="schakel"><input type="checkbox" data-actie="ui" data-veld="toonLabels" ${store.ui.toonLabels ? 'checked' : ''}> Namen tonen</label>
     <label class="schakel"><input type="checkbox" data-actie="ui" data-veld="toonMaten" ${store.ui.toonMaten ? 'checked' : ''}> Oppervlakte tonen</label>
+    <label class="schakel"><input type="checkbox" data-actie="ui" data-veld="toonAlleMaten" ${store.ui.toonAlleMaten ? 'checked' : ''}> Alle zijdematen tonen</label>
     <label class="veld"><span>Raster (m)</span>
       <select data-actie="raster">${[0.05, 0.1, 0.25, 0.5, 1].map((v) => `<option value="${v}"${p.plan.raster === v ? ' selected' : ''}>${v} m</option>`).join('')}</select></label>`;
   return h;
@@ -100,6 +120,7 @@ function paneelComponenten() {
   h += `<input class="zoek" type="search" placeholder="Zoek symbool…" data-actie="zoek" value="${escape(ui.zoek || '')}">`;
 
   for (const groep of GROEPEN) {
+    if (groep === 'Bouwkundig') continue;          // hoort bij stap 1
     const items = CATALOG.filter((c) => c.groep === groep &&
       (!zoek || c.naam.toLowerCase().includes(zoek) || c.key.includes(zoek)));
     if (!items.length) continue;
@@ -112,10 +133,11 @@ function paneelComponenten() {
     h += '</div>';
   }
 
+  const elektrisch = store.project.componenten.filter((c) => def(c.type).kringtype !== 'bouw');
   const geteld = new Map();
-  for (const c of store.project.componenten) geteld.set(c.type, (geteld.get(c.type) || 0) + 1);
+  for (const c of elektrisch) geteld.set(c.type, (geteld.get(c.type) || 0) + 1);
   if (geteld.size) {
-    h += `<div class="lijst-kop"><h3>Geplaatst (${store.project.componenten.length})</h3></div><ul class="lijst compact">`;
+    h += `<div class="lijst-kop"><h3>Geplaatst (${elektrisch.length})</h3></div><ul class="lijst compact">`;
     for (const [type, aantal] of [...geteld.entries()].sort((a, b) => b[1] - a[1])) {
       h += `<li class="rij" data-actie="selecteer-type" data-type="${type}">
         <span class="rij-icoon">${symboolIcoon(type, 18)}</span>
@@ -252,19 +274,25 @@ function paneelComponent(c) {
     <div class="groot-symbool" style="color:${kring ? kring.kleur : 'var(--symbool)'}">${symboolIcoon(c.type, 64)}</div>
     <label class="veld"><span>Naam / opschrift</span>
       <input type="text" value="${escape(c.label || '')}" placeholder="bv. bureau links" data-actie="comp-label"></label>
-    <label class="veld"><span>Kring / zekering</span>${kringKeuze(c.kringId)}</label>`;
+    ${d.kringtype === 'bouw' ? '' : `<label class="veld"><span>Kring / zekering</span>${kringKeuze(c.kringId)}</label>`}`;
   if (kring) {
     h += `<p class="kring-samenvatting" style="--kring:${kring.kleur}">
       Kring ${kring.nummer}: ${kring.amp} A · ${kring.mm2} mm²${kring.differentieelId && store.differentieel(kring.differentieelId) ? ` · Δ${store.differentieel(kring.differentieelId).gevoeligheid} mA` : ''}</p>`;
   }
-  h += `<div class="veld-rij">
+  h += d.kringtype === 'bouw'
+    ? `<div class="veld-rij">
+        <label class="veld"><span>Breedte (m)</span><input type="number" step="0.05" min="0.3" value="${c.breedte ?? d.breedte ?? 0.9}" data-actie="comp-breedte"></label>
+        ${c.type === 'trap' ? `<label class="veld"><span>Diepte (m)</span><input type="number" step="0.1" min="0.5" value="${c.diepte ?? d.diepte ?? 2.6}" data-actie="comp-diepte"></label>` : ''}
+      </div>`
+    : `<div class="veld-rij">
       <label class="veld"><span>Hoogte (cm)</span><input type="number" step="5" value="${c.hoogte ?? ''}" data-actie="comp-hoogte"></label>
       <label class="veld"><span>Vermogen (W)</span><input type="number" step="10" value="${c.watt ?? ''}" data-actie="comp-watt"></label>
-    </div>
-    <label class="veld"><span>Draaiing (${Math.round(c.rot || 0)}°)</span>
+    </div>`;
+  h += `<label class="veld"><span>Draaiing (${Math.round(c.rot || 0)}°)</span>
       <input type="range" min="0" max="355" step="5" value="${Math.round(c.rot || 0)}" data-actie="comp-rot"></label>
     <label class="veld"><span>Type wijzigen</span>
-      <select data-actie="comp-type">${CATALOG.map((x) => `<option value="${x.key}"${x.key === c.type ? ' selected' : ''}>${x.groep} — ${x.naam}</option>`).join('')}</select></label>
+      <select data-actie="comp-type">${CATALOG.filter((x) => (x.kringtype === 'bouw') === (d.kringtype === 'bouw'))
+        .map((x) => `<option value="${x.key}"${x.key === c.type ? ' selected' : ''}>${x.groep} — ${x.naam}</option>`).join('')}</select></label>
     <label class="veld"><span>Opmerking</span><textarea rows="2" data-actie="comp-opmerking">${escape(c.opmerking || '')}</textarea></label>`;
   if (verbindingen.length) {
     h += `<div class="lijst-kop"><h3>Bediening</h3></div><ul class="lijst compact">`;
@@ -284,11 +312,27 @@ function paneelComponent(c) {
   return h;
 }
 
+/** Is de ruimte een rechthoek evenwijdig met de assen? */
+function isRechthoek(r) {
+  if (!r.punten || r.punten.length !== 4) return false;
+  const [a, b, c, d] = r.punten;
+  const gelijk = (x, y) => Math.abs(x - y) < 0.001;
+  return gelijk(a.y, b.y) && gelijk(c.y, d.y) && gelijk(a.x, d.x) && gelijk(b.x, c.x);
+}
+
 function paneelRuimte(r) {
   const d = ruimteDef(r.type);
   const comps = store.project.componenten.filter((c) => c.ruimteId === r.id);
+  const box = omhullende(r.punten);
+  const maten = isRechthoek(r)
+    ? `<div class="veld-rij">
+        <label class="veld"><span>Breedte (m)</span><input type="number" step="0.05" min="0.3" value="${box.w.toFixed(2)}" data-actie="ruimte-breedte"></label>
+        <label class="veld"><span>Diepte (m)</span><input type="number" step="0.05" min="0.3" value="${box.h.toFixed(2)}" data-actie="ruimte-diepte"></label>
+      </div>`
+    : `<p class="hint">Vrije vorm met ${r.punten.length} hoekpunten · omtrek ${omtrek(r.punten).toFixed(2)} m</p>`;
   return `<div class="paneel-kop"><h2>${escape(r.naam || d.naam)}</h2>
       <p>${oppervlakte(r.punten).toFixed(2)} m² · ${comps.length} componenten</p></div>
+    ${maten}
     <label class="veld"><span>Naam</span><input type="text" value="${escape(r.naam || '')}" data-actie="ruimte-naam"></label>
     <label class="veld"><span>Type ruimte</span>
       <select data-actie="ruimte-type">${RUIMTETYPES.map((x) => `<option value="${x.key}"${x.key === r.type ? ' selected' : ''}>${x.naam}</option>`).join('')}</select></label>
@@ -330,7 +374,7 @@ function paneelProject() {
     </div>
     <div class="cijfers">
       <div><strong>${p.plan.ruimtes.length}</strong><span>ruimtes</span></div>
-      <div><strong>${p.componenten.length}</strong><span>componenten</span></div>
+      <div><strong>${p.componenten.filter((c) => def(c.type).kringtype !== 'bouw').length}</strong><span>componenten</span></div>
       <div><strong>${p.kringen.length}</strong><span>kringen</span></div>
       <div><strong>${(totaalVermogen(p) / 1000).toFixed(1)}</strong><span>kW geschat</span></div>
     </div>
@@ -381,7 +425,7 @@ function klik(e) {
       break;
     }
     case 'sluit-polygoon': planvlak && planvlak.sluitPolygoon(); break;
-    case 'stop-polygoon': store.setUI({ bezigPolygoon: null }); break;
+    case 'stop-polygoon': planvlak && planvlak.stopTekenen(); break;
     case 'nieuwe-kring':
       store.commit('kring toegevoegd', (p) => { const k = maakKring(p); store.ui.actieveKring = k.id; store.ui.tool = 'kringverf'; });
       break;
@@ -504,6 +548,12 @@ function wijzig(e) {
         }
       });
       break;
+    case 'comp-breedte':
+      store.commit('breedte gewijzigd', () => { for (const c of comps) c.breedte = Number(waarde); });
+      break;
+    case 'comp-diepte':
+      store.commit('diepte gewijzigd', () => { for (const c of comps) c.diepte = Number(waarde); });
+      break;
     case 'comp-hoogte':
       store.commit('hoogte gewijzigd', () => { for (const c of comps) c.hoogte = waarde === '' ? null : Number(waarde); });
       break;
@@ -516,6 +566,28 @@ function wijzig(e) {
         if (r) { r.type = waarde; r.kleur = ruimteDef(waarde).kleur; if (!r.naam) r.naam = ruimteDef(waarde).naam; }
       });
       break;
+    case 'ruimte-breedte':
+    case 'ruimte-diepte': {
+      const nieuw = Number(waarde);
+      if (!(nieuw > 0.2)) break;
+      store.commit('afmeting gewijzigd', () => {
+        const r = store.ruimte(store.ui.selectie[0]);
+        if (!r) return;
+        const box = omhullende(r.punten);
+        const breed = actie === 'ruimte-breedte';
+        const factor = breed ? (box.w ? nieuw / box.w : 1) : (box.h ? nieuw / box.h : 1);
+        const comps = store.project.componenten.filter((c) => c.ruimteId === r.id);
+        const schaal = (p) => (breed
+          ? { x: +(box.x1 + (p.x - box.x1) * factor).toFixed(3), y: p.y }
+          : { x: p.x, y: +(box.y1 + (p.y - box.y1) * factor).toFixed(3) });
+        r.punten = r.punten.map(schaal);
+        for (const c of comps) {
+          const p = schaal({ x: c.x, y: c.y });
+          c.x = p.x; c.y = p.y;
+        }
+      });
+      break;
+    }
     case 'ruimte-kleur':
       store.commit('kleur gewijzigd', () => { const r = store.ruimte(store.ui.selectie[0]); if (r) r.kleur = waarde; });
       break;
