@@ -22,6 +22,8 @@ const EXPORT_KLEUREN = {
   '--tekst': '#111827',
   '--tekst-zacht': '#6b7280',
   '--fout': '#dc2626',
+  '--rand': '#9ca3af',
+  '--accent-zacht': '#dbeafe',
 };
 
 function kleurStijl() {
@@ -157,6 +159,41 @@ export function exporteerPNG(canvas, schaal = 2) {
   img.src = url;
 }
 
+/** Het eendraadschema als losstaande SVG, met vaste kleuren. */
+export function bordSVGBestand(project = store.project) {
+  const ruw = bouwBordSVG(project);
+  return ruw.replace('<svg ', `<svg style="${kleurStijl()}" `);
+}
+
+export function exporteerBordSVG() {
+  bewaarBlob(new Blob([bordSVGBestand()], { type: 'image/svg+xml' }),
+    `${veiligeNaam(store.project.naam)}-eendraadschema.svg`);
+}
+
+export function exporteerBordPNG(schaal = 2) {
+  const blob = new Blob([bordSVGBestand()], { type: 'image/svg+xml;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const img = new Image();
+  img.onload = () => {
+    const c = document.createElement('canvas');
+    c.width = img.width * schaal;
+    c.height = img.height * schaal;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, c.width, c.height);
+    ctx.drawImage(img, 0, 0, c.width, c.height);
+    c.toBlob((png) => {
+      if (png) bewaarBlob(png, `${veiligeNaam(store.project.naam)}-eendraadschema.png`);
+      URL.revokeObjectURL(url);
+    }, 'image/png');
+  };
+  img.onerror = () => {
+    URL.revokeObjectURL(url);
+    alert('De afbeelding kon niet gemaakt worden. Probeer de SVG-export.');
+  };
+  img.src = url;
+}
+
 /* ------------------------------------------------------------------ *
  * Afdrukken
  * ------------------------------------------------------------------ */
@@ -191,7 +228,7 @@ export function drukAf(canvas) {
     </div>
     <div class="print-blad">
       <h2>Verdeelbord</h2>
-      <div class="print-bord" style="${kleurStijl()}">${bouwBordSVG(p)}</div>
+      <div class="print-bord">${bordSVGBestand(p)}</div>
     </div>
     <div class="print-blad">
       <h2>Componenten per zekering</h2>

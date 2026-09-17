@@ -391,3 +391,8 @@ kbd { background: var(--vlak-3); border: 1px solid var(--rand); border-radius: 5
 .teken-hud .hud-invoer { color: var(--accent); font-weight: 700; }
 .teken-hud .hud-tip { color: var(--tekst-zacht); font-size: 11.5px; }
 @media (max-width: 620px) { .teken-hud .hud-tip { display: none; } }
+
+.bord-kop { display: flex; align-items: flex-start; gap: 16px; margin-bottom: 12px; }
+.bord-kop h2 { margin: 0; }
+.bord-knoppen { margin-left: auto; display: flex; gap: 6px; flex: none; }
+.bord-schema.passend svg { width: 100%; height: auto; }

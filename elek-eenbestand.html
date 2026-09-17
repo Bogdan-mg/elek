@@ -408,6 +408,11 @@ kbd { background: var(--vlak-3); border: 1px solid var(--rand); border-radius: 5
 .teken-hud .hud-tip { color: var(--tekst-zacht); font-size: 11.5px; }
 @media (max-width: 620px) { .teken-hud .hud-tip { display: none; } }
 
+.bord-kop { display: flex; align-items: flex-start; gap: 16px; margin-bottom: 12px; }
+.bord-kop h2 { margin: 0; }
+.bord-knoppen { margin-left: auto; display: flex; gap: 6px; flex: none; }
+.bord-schema.passend svg { width: 100%; height: auto; }
+
 </style>
 </head>
 <body>
@@ -442,8 +447,10 @@ kbd { background: var(--vlak-3); border: 1px solid var(--rand); border-radius: 5
     <button data-app="open">Project openen…</button>
     <button data-app="bewaar">Project opslaan (.json)</button>
     <hr>
-    <button data-app="png">Plan als PNG</button>
-    <button data-app="svg">Plan als SVG</button>
+    <button data-app="png">Situatieschema als PNG</button>
+    <button data-app="svg">Situatieschema als SVG</button>
+    <button data-app="bord-png">Eendraadschema als PNG</button>
+    <button data-app="bord-svg">Eendraadschema als SVG</button>
     <button data-app="print">Afdrukken / PDF</button>
     <hr>
     <button data-app="voorbeeld">Voorbeeldwoning laden</button>
@@ -467,8 +474,17 @@ kbd { background: var(--vlak-3); border: 1px solid var(--rand); border-radius: 5
 
   <section class="bordvlak">
     <div class="bord-inhoud">
-      <h2>Verdeelbord</h2>
-      <p class="bord-uitleg">Eendraadschema van teller tot kring, en daaronder elk component met zijn zekering.</p>
+      <div class="bord-kop">
+        <div>
+          <h2>Eendraadschema</h2>
+          <p class="bord-uitleg">Van aardelektrode, teller en hoofdautomaat over de differentiëlen naar elke kring,
+            met de symbolen van de aangesloten toestellen in de lijn.</p>
+        </div>
+        <div class="bord-knoppen">
+          <button class="mini" data-app="bord-passend">Passend</button>
+          <button class="mini" data-app="bord-100">100 %</button>
+        </div>
+      </div>
       <div id="bord-schema" class="bord-schema"></div>
       <h2>Componenten per zekering</h2>
       <div id="bord-lijst" class="bord-lijst"></div>
@@ -2664,156 +2680,265 @@ function escape(t) {
 }
 
 /* ---- board.js ---- */
-// Verdeelbordweergave: eendraadschema van teller tot kring, plus de
-// overzichtslijst "welke component op welke zekering".
+// Eendraadschema volgens de Belgische praktijk (AREI, tabel 2.23):
+// onderaan de voeding met aardelektrode, kWh-teller en hoofdautomaat,
+// daarboven per differentieel een rail waarop de kringen naar boven
+// vertrekken, met de symbolen van de aangesloten toestellen in de lijn.
 
 
 
 
 
 
-const KOL = 140;    // kolombreedte per kring
-const KOP = 104;    // hoogte van het kopblok (teller + hoofdautomaat)
-const RIJ = 336;   // hoogte van een differentieelblok
+/* ------------------------------------------------------------------ *
+ * Maatvoering van het blad
+ * ------------------------------------------------------------------ */
+const MARGE = 26;          // rand van het blad
+const HOOFD_X = 78;        // x van de verticale hoofdleiding
+const KOL_X = 210;         // x van de eerste kring
+const KOL = 212;           // breedte per kring
+const STAP = 50;           // afstand tussen twee symbolen in een kring
+const VOET = 128;          // hoogte van de voedingsrij onderaan
+const TITEL = 96;          // hoogte van de titelhoek
+const NAAM_RUIMTE = 132;   // ruimte voor de gedraaide kringnaam
 
-/** Kabelaanduiding volgens AREI: aantal geleiders + doorsnede, bv. 3G2,5. */
+const LIJN = 'var(--symbool)';
+
+/* ------------------------------------------------------------------ *
+ * Symbolen van het bord
+ * ------------------------------------------------------------------ */
+
+/** Automatische schakelaar (AREI D), hefboom naar boven geopend. */
+function automaat(x, y, kleur = LIJN, dik = 2) {
+  return `<circle cx="${x}" cy="${y}" r="3.2" fill="${kleur}"/>` +
+    `<path d="M ${x} ${y} q -11 -11 -9 -24" fill="none" stroke="${kleur}" stroke-width="${dik}" stroke-linecap="round"/>`;
+}
+
+/** Differentieel: automaatsymbool met de ringkern erlangs. */
+function differentieel(x, y, kleur = LIJN) {
+  return automaat(x, y, kleur, 2.2) +
+    `<ellipse cx="${x - 12}" cy="${y - 13}" rx="14" ry="6.5" fill="none" stroke="${kleur}" stroke-width="1.6" ` +
+    `transform="rotate(-34 ${x - 12} ${y - 13})"/>`;
+}
+
+/** Aardelektrode (AREI D). */
+function aardelektrode(x, y, kleur = LIJN) {
+  return `<line x1="${x - 16}" y1="${y}" x2="${x + 16}" y2="${y}" stroke="${kleur}" stroke-width="2"/>` +
+    `<line x1="${x - 10}" y1="${y + 6}" x2="${x + 10}" y2="${y + 6}" stroke="${kleur}" stroke-width="2"/>` +
+    `<line x1="${x - 4}" y1="${y + 12}" x2="${x + 4}" y2="${y + 12}" stroke="${kleur}" stroke-width="2"/>`;
+}
+
+/** Leidingaanduiding: schuine streep met het aantal geleiders. */
+function leiding(x, y, aantal, kleur = LIJN) {
+  return `<line x1="${x - 8}" y1="${y + 7}" x2="${x + 8}" y2="${y - 7}" stroke="${kleur}" stroke-width="1.6"/>` +
+    `<text x="${x + 10}" y="${y - 5}" font-size="9.5" fill="var(--tekst-zacht)">${aantal}</text>`;
+}
+
+/** Kabelaanduiding volgens AREI, bv. XVB 3G2,5. */
 function kabelTekst(kring, fasen = 1) {
-  const geleiders = kring.type === 'vast' && kring.amp >= 32 && fasen === 3 ? 5 : 3;
-  return `${geleiders}G${String(kring.mm2).replace('.', ',')}`;
+  const geleiders = fasen === 3 && kring.amp >= 32 ? 5 : 3;
+  return `${kring.kabel || 'XVB'} ${geleiders}G${String(kring.mm2).replace('.', ',')}`;
 }
 
-/**
- * Automatische schakelaar (AREI D): inkomende lijn, scharnierpunt en
- * gebogen hefboom, met de uitgaande lijn eronder.
- */
-function automaatGlyph(x, y, kleur, lijn = 2.2) {
-  return `<line x1="${x}" y1="${y}" x2="${x}" y2="${y + 9}" stroke="${kleur}" stroke-width="${lijn}"/>` +
-    `<circle cx="${x}" cy="${y + 9}" r="3.4" fill="${kleur}"/>` +
-    `<path d="M ${x} ${y + 9} q -11 10 -9 21" fill="none" stroke="${kleur}" stroke-width="${lijn}" stroke-linecap="round"/>` +
-    `<line x1="${x}" y1="${y + 30}" x2="${x}" y2="${y + 42}" stroke="${kleur}" stroke-width="${lijn}"/>`;
+function geleiders(kring, fasen = 1) {
+  return fasen === 3 && kring.amp >= 32 ? 5 : 3;
 }
 
-/** Differentieel (AREI D): automaatsymbool met de ringkern. */
-function differentieelGlyph(x, y, kleur) {
-  return automaatGlyph(x, y, kleur, 2.4) +
-    `<ellipse cx="${x + 13}" cy="${y + 22}" rx="15" ry="7" fill="none" stroke="${kleur}" stroke-width="2" ` +
-    `transform="rotate(-18 ${x + 13} ${y + 22})"/>` +
-    `<line x1="${x - 4}" y1="${y + 22}" x2="${x + 6}" y2="${y + 22}" stroke="${kleur}" stroke-width="1.6" stroke-dasharray="3 3"/>`;
+function polen(kring, fasen = 1) {
+  return fasen === 3 && kring.amp >= 32 ? '4P' : '2P';
 }
 
-/** Leiding met n geleiders (AREI C): schuine streep met het aantal. */
-function leidingGlyph(x, y, aantal, kleur) {
-  return `<line x1="${x - 9}" y1="${y + 8}" x2="${x + 9}" y2="${y - 8}" stroke="${kleur}" stroke-width="1.8"/>` +
-    `<text x="${x + 12}" y="${y - 6}" font-size="10" fill="var(--tekst-zacht)">${aantal}</text>`;
-}
+/* ------------------------------------------------------------------ *
+ * Hulpjes
+ * ------------------------------------------------------------------ */
 
-function tekstRegels(tekst, max = 18) {
-  const woorden = String(tekst).split(' ');
-  const regels = [];
-  let huidig = '';
-  for (const w of woorden) {
-    if ((huidig + ' ' + w).trim().length > max && huidig) { regels.push(huidig); huidig = w; }
-    else huidig = (huidig + ' ' + w).trim();
+/** Groepeert de componenten van een kring per type en opschrift. */
+function groepeer(project, kringId) {
+  const groepen = new Map();
+  for (const c of componentenVanKring(project, kringId)) {
+    const ruimte = c.ruimteId && project.plan.ruimtes.find((r) => r.id === c.ruimteId);
+    const ruimteNaam = ruimte ? (ruimte.naam || ruimteDef(ruimte.type).naam) : '';
+    const sleutel = `${c.type}|${c.label || ''}|${ruimteNaam}`;
+    if (!groepen.has(sleutel)) {
+      groepen.set(sleutel, { type: c.type, label: c.label || '', ruimte: ruimteNaam, aantal: 0 });
+    }
+    groepen.get(sleutel).aantal += 1;
   }
-  if (huidig) regels.push(huidig);
-  return regels.slice(0, 3);
+  const orde = { verlichting: 0, bediening: 1, stopcontact: 2, vast: 3, zwakstroom: 4, verdeling: 5 };
+  return [...groepen.values()].sort(
+    (a, b) => (orde[def(a.type).kringtype] ?? 9) - (orde[def(b.type).kringtype] ?? 9)
+  );
 }
 
-/** Eendraadschema van het verdeelbord als SVG-string. */
+function kort(tekst, max) {
+  const t = String(tekst);
+  return t.length > max ? t.slice(0, max - 1) + '…' : t;
+}
+
+/* ------------------------------------------------------------------ *
+ * Het schema
+ * ------------------------------------------------------------------ */
 function bouwBordSVG(project = store.project) {
-  const differentiëlen = project.differentiëlen.filter(
-    (d) => project.kringen.some((k) => k.differentieelId === d.id)
-  );
-  const wees = project.kringen.filter((k) => !differentiëlen.some((d) => d.id === k.differentieelId));
-  const blokken = differentiëlen.map((d) => ({
-    dif: d,
-    kringen: project.kringen.filter((k) => k.differentieelId === d.id),
-  }));
-  if (wees.length) blokken.push({ dif: null, kringen: wees });
+  const fasen = project.net.fasen || 1;
 
-  const maxKringen = Math.max(1, ...blokken.map((b) => b.kringen.length));
-  const breedte = Math.max(680, 190 + maxKringen * KOL);
-  const hoogte = KOP + blokken.length * RIJ + 40;
+  // Kringen groeperen per differentieel; kringen zonder differentieel apart.
+  const gebruikt = project.differentiëlen.filter((d) => project.kringen.some((k) => k.differentieelId === d.id));
+  const banden = gebruikt.map((d) => ({ dif: d, kringen: project.kringen.filter((k) => k.differentieelId === d.id) }));
+  const wees = project.kringen.filter((k) => !gebruikt.some((d) => d.id === k.differentieelId));
+  if (wees.length) banden.push({ dif: null, kringen: wees });
+  if (!banden.length) banden.push({ dif: project.differentiëlen[0] || null, kringen: [] });
 
-  let s = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${breedte} ${hoogte}" width="${breedte}" height="${hoogte}" class="bord-svg" font-family="system-ui, sans-serif">`;
+  // Elke band krijgt de hoogte die haar langste kring nodig heeft.
+  for (const band of banden) {
+    band.groepen = band.kringen.map((k) => groepeer(project, k.id));
+    const langste = Math.max(0, ...band.groepen.map((g) => g.length));
+    band.hoogte = 118 + langste * STAP + NAAM_RUIMTE;
+  }
+
+  const maxKringen = Math.max(1, ...banden.map((b) => b.kringen.length));
+  const breedte = Math.max(980, KOL_X + (maxKringen - 1) * KOL + 240);
+  const bandenHoogte = banden.reduce((s, b) => s + b.hoogte, 0);
+  const hoogte = MARGE * 2 + bandenHoogte + VOET + TITEL + 18;
+
+  let s = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${breedte} ${hoogte}" width="${breedte}" ` +
+    `height="${hoogte}" class="bord-svg" data-breedte="${breedte}" font-family="system-ui, sans-serif">`;
   s += `<rect x="0" y="0" width="${breedte}" height="${hoogte}" fill="var(--vlak)"/>`;
+  s += `<rect x="${MARGE / 2}" y="${MARGE / 2}" width="${breedte - MARGE}" height="${hoogte - MARGE}" ` +
+    `fill="none" stroke="var(--rand)" stroke-width="1.5"/>`;
 
-  const xStart = 64;
-  const kleurLijn = 'var(--symbool)';
-  // Kopblok: kWh-teller en hoofdautomaat (AREI G en D)
-  s += `<rect x="${xStart - 24}" y="12" width="48" height="32" fill="var(--sym-fill)" stroke="${kleurLijn}" stroke-width="2"/>`;
-  s += `<text x="${xStart}" y="29" text-anchor="middle" dominant-baseline="central" font-size="12" font-weight="600" fill="var(--tekst)">kWh</text>`;
-  s += `<line x1="${xStart}" y1="44" x2="${xStart}" y2="52" stroke="${kleurLijn}" stroke-width="2"/>`;
-  s += automaatGlyph(xStart, 52, kleurLijn);
-  s += `<text x="${xStart + 16}" y="74" font-size="12" font-weight="700" fill="var(--tekst)">${project.net.hoofdzekering} A</text>`;
-  s += `<text x="${xStart + 46}" y="24" font-size="12" fill="var(--tekst-zacht)">${project.net.fasen === 3 ? '3F+N 400 V ~ 50 Hz' : '1F+N 230 V ~ 50 Hz'}</text>`;
-  s += `<text x="${xStart + 46}" y="41" font-size="12" font-weight="600" fill="var(--tekst)">${escape(project.naam || '')}</text>`;
-  // aardelektrode
-  s += `<line x1="${xStart - 46}" y1="28" x2="${xStart - 24}" y2="28" stroke="${kleurLijn}" stroke-width="2"/>`;
-  s += `<line x1="${xStart - 46}" y1="28" x2="${xStart - 46}" y2="50" stroke="${kleurLijn}" stroke-width="2"/>`;
-  s += `<line x1="${xStart - 58}" y1="50" x2="${xStart - 34}" y2="50" stroke="${kleurLijn}" stroke-width="2"/>`;
-  s += `<line x1="${xStart - 53}" y1="56" x2="${xStart - 39}" y2="56" stroke="${kleurLijn}" stroke-width="2"/>`;
-  s += `<line x1="${xStart - 49}" y1="62" x2="${xStart - 43}" y2="62" stroke="${kleurLijn}" stroke-width="2"/>`;
+  // --- Voedingsrij onderaan -----------------------------------------
+  const voetY = hoogte - MARGE - TITEL - 46;
+  const railOnder = voetY - 58;                       // rail van de onderste band
 
-  let y = KOP + 30;
-  for (const blok of blokken) {
-    const barY = y + 58;
-    // Verticale voeding naar het differentieel
-    s += `<line x1="${xStart}" y1="${y - 14}" x2="${xStart}" y2="${y + 16}" stroke="var(--symbool)" stroke-width="2"/>`;
-    // Differentieel (AREI D)
-    if (blok.dif) {
-      const g = blok.dif.gevoeligheid;
-      const kleur = g <= 30 ? 'var(--accent)' : 'var(--symbool)';
-      s += differentieelGlyph(xStart, y + 8, kleur);
-      s += `<text x="${xStart + 42}" y="${y + 22}" font-size="12" font-weight="700" fill="var(--tekst)">${blok.dif.amp} A · Δ${g} mA</text>`;
-      s += `<text x="${xStart + 42}" y="${y + 38}" font-size="11" fill="var(--tekst-zacht)">type ${blok.dif.type || 'A'} · ${escape(blok.dif.naam)}</text>`;
-      s += `<line x1="${xStart}" y1="${y + 50}" x2="${xStart}" y2="${barY}" stroke="var(--symbool)" stroke-width="2"/>`;
+  s += aardelektrode(MARGE + 26, voetY + 16);
+  s += `<line x1="${MARGE + 26}" y1="${voetY}" x2="${MARGE + 26}" y2="${voetY + 16}" stroke="${LIJN}" stroke-width="2"/>`;
+  s += `<line x1="${MARGE + 26}" y1="${voetY}" x2="${MARGE + 96}" y2="${voetY}" stroke="${LIJN}" stroke-width="2"/>`;
+  s += `<text x="${MARGE + 26}" y="${voetY + 46}" text-anchor="middle" font-size="9.5" fill="var(--tekst-zacht)">aardelektrode</text>`;
+
+  // kWh-teller
+  const tellerX = MARGE + 96;
+  s += `<rect x="${tellerX}" y="${voetY - 17}" width="52" height="34" fill="var(--sym-fill)" stroke="${LIJN}" stroke-width="2"/>`;
+  s += `<text x="${tellerX + 26}" y="${voetY}" text-anchor="middle" dominant-baseline="central" font-size="11.5" font-weight="600" fill="var(--tekst)">kWh</text>`;
+  s += `<text x="${(MARGE + 26 + tellerX) / 2}" y="${voetY - 8}" text-anchor="middle" font-size="9.5" fill="var(--tekst-zacht)">${fasen === 3 ? 'EXVB 4x10' : 'EXVB 2x10'}</text>`;
+
+  // hoofdautomaat
+  const hoofdX = tellerX + 128;
+  s += `<line x1="${tellerX + 52}" y1="${voetY}" x2="${hoofdX}" y2="${voetY}" stroke="${LIJN}" stroke-width="2"/>`;
+  s += automaat(hoofdX, voetY, LIJN, 2.4);
+  s += `<text x="${hoofdX - 26}" y="${voetY + 26}" font-size="11" font-weight="700" fill="var(--tekst)">${fasen === 3 ? '4P' : '2P'} ${project.net.hoofdzekering} A</text>`;
+  s += `<text x="${tellerX + 62}" y="${voetY - 8}" font-size="10" fill="var(--tekst-zacht)">${fasen === 3 ? 'XVB 5G10' : 'XVB 3G10'}</text>`;
+
+  // van de hoofdautomaat naar de verticale hoofdleiding
+  s += `<line x1="${hoofdX}" y1="${voetY - 24}" x2="${hoofdX}" y2="${voetY - 40}" stroke="${LIJN}" stroke-width="2"/>`;
+  s += `<line x1="${hoofdX}" y1="${voetY - 40}" x2="${HOOFD_X}" y2="${voetY - 40}" stroke="${LIJN}" stroke-width="2"/>`;
+
+  // --- Banden (één rail per differentieel) ---------------------------
+  const railYs = [];
+  let onder = railOnder;
+  for (let i = banden.length - 1; i >= 0; i--) {
+    railYs[i] = onder;
+    onder -= banden[i].hoogte;
+  }
+  const bovensteRail = railYs[0];
+  s += `<line x1="${HOOFD_X}" y1="${voetY - 40}" x2="${HOOFD_X}" y2="${bovensteRail}" stroke="${LIJN}" stroke-width="2"/>`;
+
+  banden.forEach((band, bi) => {
+    const railY = railYs[bi];
+    const laatste = KOL_X + Math.max(0, band.kringen.length - 1) * KOL;
+    s += `<line x1="${HOOFD_X}" y1="${railY}" x2="${Math.max(laatste, KOL_X)}" y2="${railY}" stroke="${LIJN}" stroke-width="3.2"/>`;
+
+    // differentieel tussen hoofdleiding en rail
+    if (band.dif) {
+      const kleur = band.dif.gevoeligheid <= 30 ? 'var(--accent)' : LIJN;
+      s += differentieel(HOOFD_X, railY - 4, kleur);
+      s += `<text x="${HOOFD_X + 16}" y="${railY - 44}" font-size="11" font-weight="700" fill="var(--tekst)">` +
+        `${fasen === 3 ? '4P' : '2P'} ${band.dif.amp} A</text>`;
+      s += `<text x="${HOOFD_X + 16}" y="${railY - 31}" font-size="11" font-weight="700" fill="${kleur}">Δ${band.dif.gevoeligheid} mA</text>`;
+      s += `<text x="${HOOFD_X + 16}" y="${railY - 19}" font-size="9.5" fill="var(--tekst-zacht)">` +
+        `type ${band.dif.type || 'A'} · ${escape(kort(band.dif.naam, 12))}</text>`;
     } else {
-      s += `<text x="${xStart + 14}" y="${y + 34}" font-size="12" fill="var(--fout)">Zonder differentieel</text>`;
-      s += `<line x1="${xStart}" y1="${y + 40}" x2="${xStart}" y2="${barY}" stroke="var(--fout)" stroke-width="2"/>`;
+      s += `<text x="${HOOFD_X + 12}" y="${railY - 16}" font-size="11" font-weight="700" fill="var(--fout)">zonder differentieel</text>`;
     }
 
-    // Rail
-    const laatsteX = xStart + 64 + (blok.kringen.length - 1) * KOL;
-    s += `<line x1="${xStart}" y1="${barY}" x2="${Math.max(laatsteX, xStart + 40)}" y2="${barY}" stroke="var(--symbool)" stroke-width="3"/>`;
+    // --- kringen, van de rail naar boven ---
+    band.kringen.forEach((k, ki) => {
+      const x = KOL_X + ki * KOL;
+      const groepen = band.groepen[ki];
+      const basis = railY - 118;                       // eerste symbool
+      const top = basis - Math.max(0, groepen.length - 1) * STAP;
+      const eind = top - 26;
 
-    blok.kringen.forEach((k, i) => {
-      const x = xStart + 64 + i * KOL;
-      const comps = componentenVanKring(project, k.id);
-      s += `<line x1="${x}" y1="${barY}" x2="${x}" y2="${barY + 16}" stroke="${k.kleur}" stroke-width="2.5"/>`;
-      // Automatische schakelaar volgens AREI, met curve en stroomsterkte
-      s += automaatGlyph(x, barY + 16, k.kleur, 2.5);
-      s += `<text x="${x + 14}" y="${barY + 38}" font-size="12" font-weight="700" fill="var(--tekst)">${k.curve || 'C'}${k.amp}</text>`;
-      // Leiding met aantal geleiders en doorsnede
-      s += `<line x1="${x}" y1="${barY + 58}" x2="${x}" y2="${barY + 92}" stroke="${k.kleur}" stroke-width="2.5"/>`;
-      s += leidingGlyph(x, barY + 72, project.net.fasen === 3 && k.amp >= 32 ? 5 : 3, k.kleur);
-      s += `<text x="${x + 12}" y="${barY + 88}" font-size="10" fill="var(--tekst-zacht)">${kabelTekst(k, project.net.fasen)}</text>`;
-      // Kringnummer en naam
-      s += `<circle cx="${x}" cy="${barY + 106}" r="11" fill="${k.kleur}"/>`;
-      s += `<text x="${x}" y="${barY + 106}" text-anchor="middle" dominant-baseline="central" font-size="11" font-weight="700" fill="#fff">${k.nummer}</text>`;
-      tekstRegels(k.naam, 17).forEach((regel, ri) => {
-        s += `<text x="${x}" y="${barY + 128 + ri * 13}" text-anchor="middle" font-size="11" fill="var(--tekst)">${escape(regel)}</text>`;
+      // takleiding
+      s += `<line x1="${x}" y1="${railY}" x2="${x}" y2="${eind}" stroke="${LIJN}" stroke-width="1.8"/>`;
+
+      // automaat vlak boven de rail
+      s += automaat(x, railY - 12, LIJN, 2.2);
+      s += `<text x="${x + 13}" y="${railY - 30}" font-size="11.5" font-weight="700" fill="var(--tekst)">` +
+        `${polen(k, fasen)} · ${k.curve || 'C'}${k.amp} A</text>`;
+
+      // leiding met aantal geleiders en kabeltype
+      s += leiding(x, railY - 64, geleiders(k, fasen));
+      s += `<text x="${x + 13}" y="${railY - 60}" font-size="10" fill="var(--tekst-zacht)">${kabelTekst(k, fasen)}</text>`;
+
+      // kringnummer in de kleur van het plan
+      s += `<circle cx="${x}" cy="${railY - 92}" r="10.5" fill="${k.kleur}"/>`;
+      s += `<text x="${x}" y="${railY - 92}" text-anchor="middle" dominant-baseline="central" font-size="10.5" ` +
+        `font-weight="700" fill="#fff">${k.nummer}</text>`;
+
+      // symbolen van de aangesloten toestellen, in de lijn
+      groepen.forEach((g, gi) => {
+        const y = basis - gi * STAP;
+        s += `<g transform="translate(${x} ${y}) scale(0.3)" fill="none" stroke="${LIJN}" stroke-width="5.5" ` +
+          `stroke-linecap="round" stroke-linejoin="round">${symbool(g.type)}</g>`;
+        const naam = def(g.type).naam;
+        s += `<text x="${x + 20}" y="${y - 2}" font-size="10" fill="var(--tekst)">` +
+          `${g.aantal > 1 ? `${g.aantal}× ` : ''}${escape(kort(naam, 24))}</text>`;
+        const onderschrift = [g.label, g.ruimte].filter(Boolean).join(' · ');
+        if (onderschrift) {
+          s += `<text x="${x + 20}" y="${y + 10}" font-size="9" fill="var(--tekst-zacht)">${escape(kort(onderschrift, 26))}</text>`;
+        }
       });
-      // Symbolen van de aangesloten componenten, met aantal
-      const perType = new Map();
-      for (const c of comps) perType.set(c.type, (perType.get(c.type) || 0) + 1);
-      const types = [...perType.entries()].slice(0, 6);
-      types.forEach(([type, aantal], ti) => {
-        const rij = Math.floor(ti / 3);
-        const kol = ti % 3;
-        const inRij = Math.min(3, types.length - rij * 3);
-        const sx = x - ((inRij - 1) * 32) / 2 + kol * 32;
-        const sy = barY + 180 + rij * 30;
-        s += `<g transform="translate(${sx} ${sy}) scale(0.17)" fill="none" stroke="${k.kleur}" stroke-width="7" ` +
-          `stroke-linecap="round" stroke-linejoin="round">${symbool(type)}</g>`;
-        if (aantal > 1) s += `<text x="${sx + 13}" y="${sy + 14}" font-size="10" font-weight="700" fill="var(--tekst)">${aantal}×</text>`;
-      });
+
+      if (!groepen.length) {
+        s += `<text x="${x + 14}" y="${basis}" font-size="10" fill="var(--tekst-zacht)">geen toestellen</text>`;
+      }
+
+      // kringnaam verticaal bovenaan, zoals op een eendraadschema
+      s += `<text x="${x - 5}" y="${eind - 8}" font-size="11.5" font-weight="700" fill="var(--tekst)" ` +
+        `transform="rotate(-90 ${x - 5} ${eind - 8})" text-anchor="start">${escape(kort(k.naam, 24))}</text>`;
       const punten = puntenInKring(project, k.id);
-      s += `<text x="${x}" y="${barY + 244}" text-anchor="middle" font-size="10" fill="var(--tekst-zacht)">${comps.length} comp. · ${punten} pt</text>`;
+      s += `<text x="${x + 12}" y="${eind - 8}" font-size="9" fill="var(--tekst-zacht)" ` +
+        `transform="rotate(-90 ${x + 12} ${eind - 8})" text-anchor="start">` +
+        `${punten} pt · ${(vermogenVanKring(project, k.id) / 1000).toFixed(1)} kW</text>`;
     });
+  });
 
-    y += RIJ;
-  }
+  // --- Titelhoek ------------------------------------------------------
+  const tx = MARGE / 2;
+  const ty = hoogte - MARGE / 2 - TITEL;
+  const tb = breedte - MARGE;
+  const kol1 = tb * 0.52, kol2 = tb * 0.78;
+  s += `<rect x="${tx}" y="${ty}" width="${tb}" height="${TITEL}" fill="none" stroke="var(--rand)" stroke-width="1.5"/>`;
+  s += `<line x1="${tx + kol1}" y1="${ty}" x2="${tx + kol1}" y2="${ty + TITEL}" stroke="var(--rand)" stroke-width="1.5"/>`;
+  s += `<line x1="${tx + kol2}" y1="${ty}" x2="${tx + kol2}" y2="${ty + TITEL}" stroke="var(--rand)" stroke-width="1.5"/>`;
+
+  s += `<text x="${tx + 14}" y="${ty + 22}" font-size="11" font-weight="700" fill="var(--tekst)">Plaats van de elektrische installatie</text>`;
+  s += `<text x="${tx + 14}" y="${ty + 40}" font-size="11" fill="var(--tekst)">${escape(project.klant || '—')}</text>`;
+  s += `<text x="${tx + 14}" y="${ty + 56}" font-size="11" fill="var(--tekst)">${escape(project.adres || '')}</text>`;
+  s += `<text x="${tx + 14}" y="${ty + 78}" font-size="10" fill="var(--tekst-zacht)">` +
+    `Controle op basis van gangbare AREI-vuistregels — geen keuringsverslag.</text>`;
+
+  s += `<text x="${tx + kol1 + 14}" y="${ty + 22}" font-size="11" font-weight="700" fill="var(--tekst)">${escape(project.naam || 'Installatie')}</text>`;
+  s += `<text x="${tx + kol1 + 14}" y="${ty + 40}" font-size="10.5" fill="var(--tekst-zacht)">Getekend met Elek</text>`;
+  s += `<text x="${tx + kol1 + 14}" y="${ty + 58}" font-size="10.5" fill="var(--tekst-zacht)">` +
+    `${project.kringen.length} kringen · ${project.componenten.filter((c) => def(c.type).kringtype !== 'bouw').length} componenten</text>`;
+
+  const datum = new Date(project.gewijzigd || Date.now()).toLocaleDateString('nl-BE');
+  s += `<text x="${tx + kol2 + 14}" y="${ty + 22}" font-size="11" font-weight="700" fill="var(--tekst)">Eendraadschema</text>`;
+  s += `<text x="${tx + kol2 + 14}" y="${ty + 42}" font-size="10.5" fill="var(--tekst)">` +
+    `${fasen === 3 ? '3 x 400 V + N ~ 50 Hz' : '230 V + N ~ 50 Hz'}</text>`;
+  s += `<text x="${tx + kol2 + 14}" y="${ty + 60}" font-size="10.5" fill="var(--tekst-zacht)">${datum}</text>`;
+  s += `<text x="${tx + kol2 + 14}" y="${ty + 78}" font-size="10.5" fill="var(--tekst-zacht)">blad 1/1</text>`;
 
   s += '</svg>';
   return s;
@@ -3559,6 +3684,8 @@ const EXPORT_KLEUREN = {
   '--tekst': '#111827',
   '--tekst-zacht': '#6b7280',
   '--fout': '#dc2626',
+  '--rand': '#9ca3af',
+  '--accent-zacht': '#dbeafe',
 };
 
 function kleurStijl() {
@@ -3694,6 +3821,41 @@ function exporteerPNG(canvas, schaal = 2) {
   img.src = url;
 }
 
+/** Het eendraadschema als losstaande SVG, met vaste kleuren. */
+function bordSVGBestand(project = store.project) {
+  const ruw = bouwBordSVG(project);
+  return ruw.replace('<svg ', `<svg style="${kleurStijl()}" `);
+}
+
+function exporteerBordSVG() {
+  bewaarBlob(new Blob([bordSVGBestand()], { type: 'image/svg+xml' }),
+    `${veiligeNaam(store.project.naam)}-eendraadschema.svg`);
+}
+
+function exporteerBordPNG(schaal = 2) {
+  const blob = new Blob([bordSVGBestand()], { type: 'image/svg+xml;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const img = new Image();
+  img.onload = () => {
+    const c = document.createElement('canvas');
+    c.width = img.width * schaal;
+    c.height = img.height * schaal;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, c.width, c.height);
+    ctx.drawImage(img, 0, 0, c.width, c.height);
+    c.toBlob((png) => {
+      if (png) bewaarBlob(png, `${veiligeNaam(store.project.naam)}-eendraadschema.png`);
+      URL.revokeObjectURL(url);
+    }, 'image/png');
+  };
+  img.onerror = () => {
+    URL.revokeObjectURL(url);
+    alert('De afbeelding kon niet gemaakt worden. Probeer de SVG-export.');
+  };
+  img.src = url;
+}
+
 /* ------------------------------------------------------------------ *
  * Afdrukken
  * ------------------------------------------------------------------ */
@@ -3728,7 +3890,7 @@ function drukAf(canvas) {
     </div>
     <div class="print-blad">
       <h2>Verdeelbord</h2>
-      <div class="print-bord" style="${kleurStijl()}">${bouwBordSVG(p)}</div>
+      <div class="print-bord">${bordSVGBestand(p)}</div>
     </div>
     <div class="print-blad">
       <h2>Componenten per zekering</h2>
@@ -3821,6 +3983,8 @@ function bindWerkbalk() {
       case 'bewaar': exporteerProject(); break;
       case 'png': exporteerPNG(canvas); break;
       case 'svg': exporteerSVG(canvas); break;
+      case 'bord-png': exporteerBordPNG(); break;
+      case 'bord-svg': exporteerBordSVG(); break;
       case 'print': drukAf(canvas); break;
       case 'menu': document.body.classList.toggle('menu-open'); break;
       case 'links': document.body.classList.toggle('links-open'); break;
@@ -3829,6 +3993,14 @@ function bindWerkbalk() {
         document.body.classList.remove('links-open', 'rechts-open', 'menu-open');
         break;
       case 'voorbeeld': laadVoorbeeld(); break;
+      case 'bord-passend':
+        $('#bord-schema').classList.add('passend');
+        try { localStorage.setItem('elek.bordPassend', '1'); } catch (e) { /* geen opslag */ }
+        break;
+      case 'bord-100':
+        $('#bord-schema').classList.remove('passend');
+        try { localStorage.setItem('elek.bordPassend', '0'); } catch (e) { /* geen opslag */ }
+        break;
       case 'legende':
         $('#legende-inhoud').innerHTML = bouwLegende();
         $('#legende').showModal();
@@ -3934,7 +4106,11 @@ function werkHudBij() {
 }
 
 function tekenBord() {
-  $('#bord-schema').innerHTML = bouwBordSVG(store.project);
+  const vlak = $('#bord-schema');
+  vlak.innerHTML = bouwBordSVG(store.project);
+  let passend = true;
+  try { passend = localStorage.getItem('elek.bordPassend') !== '0'; } catch (e) { /* geen opslag */ }
+  vlak.classList.toggle('passend', passend);
   $('#bord-lijst').innerHTML = bouwBordTabel(store.project);
 }
 

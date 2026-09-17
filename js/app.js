@@ -4,7 +4,10 @@ import store from './store.js';
 import { PlanCanvas } from './canvas.js';
 import { tekenLinks, tekenRechts, bindPanelen, koppelCanvas, verwijderSelectie, dupliceerSelectie } from './panels.js';
 import { bouwBordSVG, bouwBordTabel } from './board.js';
-import { exporteerProject, importeerProject, exporteerPNG, exporteerSVG, drukAf, drukAfLegende } from './exporters.js';
+import {
+  exporteerProject, importeerProject, exporteerPNG, exporteerSVG,
+  exporteerBordPNG, exporteerBordSVG, drukAf, drukAfLegende,
+} from './exporters.js';
 import { nieuwProject, uid, def, CATALOG, GROEPEN } from './model.js';
 import { symboolIcoon } from './symbols.js';
 import { autoVerdeel } from './circuits.js';
@@ -74,6 +77,8 @@ function bindWerkbalk() {
       case 'bewaar': exporteerProject(); break;
       case 'png': exporteerPNG(canvas); break;
       case 'svg': exporteerSVG(canvas); break;
+      case 'bord-png': exporteerBordPNG(); break;
+      case 'bord-svg': exporteerBordSVG(); break;
       case 'print': drukAf(canvas); break;
       case 'menu': document.body.classList.toggle('menu-open'); break;
       case 'links': document.body.classList.toggle('links-open'); break;
@@ -82,6 +87,14 @@ function bindWerkbalk() {
         document.body.classList.remove('links-open', 'rechts-open', 'menu-open');
         break;
       case 'voorbeeld': laadVoorbeeld(); break;
+      case 'bord-passend':
+        $('#bord-schema').classList.add('passend');
+        try { localStorage.setItem('elek.bordPassend', '1'); } catch (e) { /* geen opslag */ }
+        break;
+      case 'bord-100':
+        $('#bord-schema').classList.remove('passend');
+        try { localStorage.setItem('elek.bordPassend', '0'); } catch (e) { /* geen opslag */ }
+        break;
       case 'legende':
         $('#legende-inhoud').innerHTML = bouwLegende();
         $('#legende').showModal();
@@ -187,7 +200,11 @@ function werkHudBij() {
 }
 
 function tekenBord() {
-  $('#bord-schema').innerHTML = bouwBordSVG(store.project);
+  const vlak = $('#bord-schema');
+  vlak.innerHTML = bouwBordSVG(store.project);
+  let passend = true;
+  try { passend = localStorage.getItem('elek.bordPassend') !== '0'; } catch (e) { /* geen opslag */ }
+  vlak.classList.toggle('passend', passend);
   $('#bord-lijst').innerHTML = bouwBordTabel(store.project);
 }
 

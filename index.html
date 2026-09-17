@@ -47,8 +47,10 @@
     <button data-app="open">Project openen…</button>
     <button data-app="bewaar">Project opslaan (.json)</button>
     <hr>
-    <button data-app="png">Plan als PNG</button>
-    <button data-app="svg">Plan als SVG</button>
+    <button data-app="png">Situatieschema als PNG</button>
+    <button data-app="svg">Situatieschema als SVG</button>
+    <button data-app="bord-png">Eendraadschema als PNG</button>
+    <button data-app="bord-svg">Eendraadschema als SVG</button>
     <button data-app="print">Afdrukken / PDF</button>
     <hr>
     <button data-app="voorbeeld">Voorbeeldwoning laden</button>
@@ -72,8 +74,17 @@
 
   <section class="bordvlak">
     <div class="bord-inhoud">
-      <h2>Verdeelbord</h2>
-      <p class="bord-uitleg">Eendraadschema van teller tot kring, en daaronder elk component met zijn zekering.</p>
+      <div class="bord-kop">
+        <div>
+          <h2>Eendraadschema</h2>
+          <p class="bord-uitleg">Van aardelektrode, teller en hoofdautomaat over de differentiëlen naar elke kring,
+            met de symbolen van de aangesloten toestellen in de lijn.</p>
+        </div>
+        <div class="bord-knoppen">
+          <button class="mini" data-app="bord-passend">Passend</button>
+          <button class="mini" data-app="bord-100">100 %</button>
+        </div>
+      </div>
       <div id="bord-schema" class="bord-schema"></div>
       <h2>Componenten per zekering</h2>
       <div id="bord-lijst" class="bord-lijst"></div>

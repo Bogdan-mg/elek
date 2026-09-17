@@ -104,13 +104,23 @@ service worker.
   vochtige ruimte zonder 30 mA, en toestellen die een eigen kring horen te
   hebben.
 
-### Verdeelbord
-Het tabblad *Verdeelbord* toont het **eendraadschema** van kWh-teller en
-aardelektrode over hoofdautomaat en differentieel tot elke kring, met het
-AREI-symbool van de automaat (curve + stroomsterkte), de kabelaanduiding
-(bv. `3G2,5` met het aantal geleiders) en de symbolen van de aangesloten
-componenten. Daaronder staat per zekering welke componenten erop zitten,
-gegroepeerd per ruimte.
+### Eendraadschema
+Het tabblad *Verdeelbord* toont het **eendraadschema** zoals het op een
+Belgisch dossier hoort: onderaan de aardelektrode, de kWh-teller en de
+hoofdautomaat, daarboven per differentieel een rail, en vanaf die rail vertrekt
+elke kring naar boven met
+
+* de automaat (`2P · C16 A`) volgens het AREI-symbool,
+* de leiding met het aantal geleiders en de kabel (`XVB 3G2,5`),
+* het kringnummer in dezelfde kleur als op het plan,
+* de symbolen van álle aangesloten toestellen in de lijn, met naam, aantal en
+  ruimte,
+* de kringnaam verticaal bovenaan, met aantal punten en geschat vermogen.
+
+Onderaan staat een titelhoek met klant, adres, spanning en datum. Met *Passend*
+of *100 %* schakel je tussen het volledige schema in beeld en ware grootte.
+Daaronder staat per zekering welke componenten erop zitten, gegroepeerd per
+ruimte.
 
 ### Symbolen
 De symbolen volgen **AREI Boek 1, tabel 2.23** (grafische symbolen), dezelfde
@@ -124,7 +134,8 @@ hun naam; die lijst kan je ook afdrukken.
 * Het project wordt automatisch in de browser bewaard.
 * *Project opslaan* geeft een `.json`-bestand dat je kan bewaren, doorsturen of
   op een ander toestel weer openen.
-* *Plan als PNG / SVG* exporteert het situatieschema.
+* *Situatieschema als PNG / SVG* en *Eendraadschema als PNG / SVG* exporteren
+  de tekeningen apart.
 * *Afdrukken / PDF* maakt drie pagina's: situatieschema, verdeelbord en de
   lijst met componenten per zekering.
 
