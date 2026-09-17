@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<title>Elek — situatieschema &amp; zekeringen</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no, maximum-scale=1">
+<meta name="description" content="Teken een situatieschema, plaats de elektrische componenten en bepaal per component op welke zekering hij komt. Werkt op Windows en iPad, ook offline.">
+<meta name="theme-color" content="#0f172a">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Elek">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" href="./icons/icoon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
+<link rel="stylesheet" href="./css/app.css">
+</head>
+<body>
+
+<header class="werkbalk">
+  <button class="icoonknop alleen-smal" data-app="links" title="Gereedschap">☰</button>
+  <div class="merk">
+    <span class="logo">⚡</span>
+    <span class="merk-tekst"><strong>Elek</strong><small id="projectnaam">Nieuw project</small></span>
+  </div>
+
+  <nav class="stappen" aria-label="Stappen">
+    <button data-app="stap" data-stap="1" class="actief"><b>1</b><span>Plattegrond</span></button>
+    <button data-app="stap" data-stap="2"><b>2</b><span>Componenten</span></button>
+    <button data-app="stap" data-stap="3"><b>3</b><span>Kringen</span></button>
+  </nav>
+
+  <div class="weergaven">
+    <button data-app="weergave" data-weergave="plan" class="actief">Plan</button>
+    <button data-app="weergave" data-weergave="bord">Verdeelbord</button>
+  </div>
+
+  <div class="werkbalk-acties">
+    <button class="icoonknop" data-app="undo" title="Ongedaan maken (Ctrl+Z)">↶</button>
+    <button class="icoonknop" data-app="redo" title="Opnieuw (Ctrl+Shift+Z)">↷</button>
+    <button class="icoonknop breed" data-app="menu" title="Meer">⋯</button>
+    <button class="icoonknop alleen-smal" data-app="rechts" title="Eigenschappen">☷</button>
+  </div>
+
+  <div class="menu" id="menu">
+    <button data-app="nieuw">Nieuw project</button>
+    <button data-app="open">Project openen…</button>
+    <button data-app="bewaar">Project opslaan (.json)</button>
+    <hr>
+    <button data-app="png">Plan als PNG</button>
+    <button data-app="svg">Plan als SVG</button>
+    <button data-app="print">Afdrukken / PDF</button>
+    <hr>
+    <button data-app="voorbeeld">Voorbeeldwoning laden</button>
+    <button data-app="help">Uitleg &amp; sneltoetsen</button>
+  </div>
+</header>
+
+<main id="werkvlak" class="werkvlak">
+  <aside id="paneel-links" class="paneel links"></aside>
+
+  <section class="tekenvlak">
+    <svg id="plan" class="plan" xmlns="http://www.w3.org/2000/svg"></svg>
+    <div class="zoomknoppen">
+      <button class="icoonknop" data-app="zoom-in" title="Inzoomen">+</button>
+      <button class="icoonknop" data-app="zoom-uit" title="Uitzoomen">−</button>
+      <button class="icoonknop" data-app="zoom-alles" title="Alles in beeld">⤢</button>
+    </div>
+  </section>
+
+  <section class="bordvlak">
+    <div class="bord-inhoud">
+      <h2>Verdeelbord</h2>
+      <p class="bord-uitleg">Eendraadschema van teller tot kring, en daaronder elk component met zijn zekering.</p>
+      <div id="bord-schema" class="bord-schema"></div>
+      <h2>Componenten per zekering</h2>
+      <div id="bord-lijst" class="bord-lijst"></div>
+    </div>
+  </section>
+
+  <aside id="paneel-rechts" class="paneel rechts"></aside>
+  <div class="paneel-scherm" data-app="sluit-paneel"></div>
+</main>
+
+<input type="file" id="bestand-invoer" accept=".json,application/json" hidden>
+<div id="print-vlak" class="print-vlak"></div>
+
+<dialog id="welkom" class="dialoog">
+  <h2>Welkom bij Elek</h2>
+  <p>Maak het elektrisch dossier van een woning in drie stappen:</p>
+  <ol class="stappen-uitleg">
+    <li><strong>Plattegrond</strong> — teken de ruimtes van de woning.</li>
+    <li><strong>Componenten</strong> — plaats lichtpunten, schakelaars, stopcontacten en toestellen.</li>
+    <li><strong>Kringen</strong> — bepaal per component op welke zekering hij komt en bekijk het verdeelbord.</li>
+  </ol>
+  <div class="dialoog-knoppen">
+    <button class="knop" data-app="voorbeeld">Voorbeeldwoning bekijken</button>
+    <button class="knop primair" data-app="sluit-welkom">Zelf beginnen</button>
+  </div>
+</dialog>
+
+<dialog id="help" class="dialoog">
+  <h2>Uitleg &amp; sneltoetsen</h2>
+  <h3>Werkwijze</h3>
+  <ul>
+    <li><strong>Stap 1:</strong> kies “Ruimte” en sleep een rechthoek, of “Vorm” en klik punt per punt (dubbelklik of Enter sluit de vorm). Sleep een geselecteerde ruimte om ze te verplaatsen; sleep de hoekpunten om ze te vervormen.</li>
+    <li><strong>Stap 2:</strong> kies een symbool in het palet en klik op het plan. Schakelaars en stopcontacten klikken automatisch tegen de dichtstbijzijnde muur. Met “Verbinden” koppel je een schakelaar aan het lichtpunt dat hij bedient.</li>
+    <li><strong>Stap 3:</strong> klik “Automatisch verdelen” voor een voorstel, of maak zelf kringen en klik componenten aan om ze toe te wijzen. De controlelijst waarschuwt voor te veel punten per kring, een te zware automaat of een ontbrekend differentieel van 30 mA.</li>
+  </ul>
+  <h3>Sneltoetsen</h3>
+  <ul class="toetsen">
+    <li><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> stap kiezen</li>
+    <li><kbd>Esc</kbd> gereedschap loslaten</li>
+    <li><kbd>Del</kbd> selectie verwijderen</li>
+    <li><kbd>R</kbd> draaien (met <kbd>Shift</kbd> terug)</li>
+    <li><kbd>Ctrl</kbd>+<kbd>Z</kbd> ongedaan maken</li>
+    <li><kbd>Ctrl</kbd>+<kbd>D</kbd> dupliceren</li>
+    <li><kbd>Ctrl</kbd>+<kbd>S</kbd> project opslaan</li>
+    <li><kbd>0</kbd> alles in beeld · <kbd>+</kbd> <kbd>−</kbd> zoomen</li>
+    <li>Pijltjes verplaatsen de selectie</li>
+  </ul>
+  <h3>Op iPad</h3>
+  <p>Eén vinger sleept het plan, twee vingers zoomen. Tik een component aan om hem te selecteren en sleep hem naar de juiste plaats. Installeer de app via <em>Deel → Zet op beginscherm</em>.</p>
+  <p class="voetnoot">De controles zijn gangbare AREI-vuistregels en vervangen geen keuring door een erkend organisme.</p>
+  <div class="dialoog-knoppen"><button class="knop primair" data-app="sluit-help">Sluiten</button></div>
+</dialog>
+
+<script type="module" src="./js/app.js"></script>
+</body>
+</html>
