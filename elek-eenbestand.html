@@ -1,0 +1,3338 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<title>Elek (één bestand) — situatieschema &amp; zekeringen</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no, maximum-scale=1">
+<meta name="description" content="Teken een situatieschema, plaats de elektrische componenten en bepaal per component op welke zekering hij komt. Werkt op Windows en iPad, ook offline.">
+<meta name="theme-color" content="#0f172a">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Elek">
+
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIiB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiI+CiAgPGRlZnM+CiAgICA8bGluZWFyR3JhZGllbnQgaWQ9InYiIHgxPSIwIiB5MT0iMCIgeDI9IjEiIHkyPSIxIj4KICAgICAgPHN0b3Agb2Zmc2V0PSIwIiBzdG9wLWNvbG9yPSIjMjU2M2ViIi8+CiAgICAgIDxzdG9wIG9mZnNldD0iMSIgc3RvcC1jb2xvcj0iIzdjM2FlZCIvPgogICAgPC9saW5lYXJHcmFkaWVudD4KICA8L2RlZnM+CiAgPHJlY3Qgd2lkdGg9IjUxMiIgaGVpZ2h0PSI1MTIiIHJ4PSIxMjAiIGZpbGw9InVybCgjdikiLz4KICA8cGF0aCBkPSJNIDMwNiA0NSBMIDE0MyAyOTUgTCAyNDAgMjk1IEwgMjA0IDUwMCBMIDM3OCAyNzggTCAyODEgMjc4IFoiIGZpbGw9IiNmZmZmZmYiLz4KPC9zdmc+Cg==">
+
+<style>
+/* Elek — opmaak. Licht en donker, geschikt voor muis en touch. */
+
+:root {
+  --vlak: #ffffff;
+  --vlak-2: #f8fafc;
+  --vlak-3: #f1f5f9;
+  --rand: #e2e8f0;
+  --tekst: #0f172a;
+  --tekst-zacht: #64748b;
+  --accent: #2563eb;
+  --accent-zacht: #dbeafe;
+  --fout: #dc2626;
+  --waarschuwing: #d97706;
+  --ok: #059669;
+  --muur: #0f172a;
+  --symbool: #1e293b;
+  --sym-fill: #ffffff;
+  --geen-kring: #94a3b8;
+  --tekst-plan: #334155;
+  --tekst-plan-zacht: #64748b;
+  --verbinding: #94a3b8;
+  --raster-groot: #dbe2ea;
+  --raster-fijn: #eef2f6;
+  --paneel-breedte: 288px;
+  --werkbalk-hoogte: 56px;
+  --schaduw: 0 10px 30px rgba(15, 23, 42, .12);
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-thema="licht"]) {
+    --vlak: #0f172a;
+    --vlak-2: #111c31;
+    --vlak-3: #16233c;
+    --rand: #24334d;
+    --tekst: #e8eefc;
+    --tekst-zacht: #94a3b8;
+    --accent: #60a5fa;
+    --accent-zacht: #1e3a8a;
+    --muur: #cbd5e1;
+    --symbool: #dbeafe;
+    --sym-fill: #0b1220;
+    --geen-kring: #64748b;
+    --tekst-plan: #cbd5e1;
+    --tekst-plan-zacht: #94a3b8;
+    --verbinding: #475569;
+    --raster-groot: #1e293b;
+    --raster-fijn: #172033;
+    --schaduw: 0 10px 30px rgba(0, 0, 0, .5);
+    color-scheme: dark;
+  }
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--vlak-2);
+  color: var(--tekst);
+  font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-text-size-adjust: 100%;
+  overscroll-behavior: none;
+}
+
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+h2, h3, h4 { margin: 0; font-weight: 700; }
+
+/* ---------------------------------------------------------- werkbalk */
+.werkbalk {
+  position: relative;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: calc(var(--werkbalk-hoogte) + env(safe-area-inset-top));
+  padding: env(safe-area-inset-top) 12px 0;
+  background: var(--vlak);
+  border-bottom: 1px solid var(--rand);
+}
+
+.merk { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.logo {
+  width: 32px; height: 32px; border-radius: 9px;
+  display: grid; place-items: center;
+  background: linear-gradient(135deg, #2563eb, #7c3aed);
+  color: #fff; font-size: 17px;
+}
+.merk-tekst { display: flex; flex-direction: column; line-height: 1.1; min-width: 0; }
+.merk-tekst strong { font-size: 15px; }
+.merk-tekst small { color: var(--tekst-zacht); font-size: 11px; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.stappen { display: flex; gap: 4px; margin-left: auto; }
+.stappen button {
+  display: flex; align-items: center; gap: 7px;
+  padding: 7px 13px; border: 1px solid transparent; border-radius: 999px;
+  background: transparent; color: var(--tekst-zacht); white-space: nowrap;
+}
+.stappen button b {
+  width: 21px; height: 21px; border-radius: 50%;
+  display: grid; place-items: center; font-size: 12px;
+  background: var(--vlak-3); color: var(--tekst-zacht);
+}
+.stappen button.actief { background: var(--accent-zacht); color: var(--accent); border-color: transparent; font-weight: 600; }
+.stappen button.actief b { background: var(--accent); color: #fff; }
+
+.weergaven { display: flex; background: var(--vlak-3); border-radius: 999px; padding: 3px; }
+.weergaven button {
+  border: 0; background: transparent; color: var(--tekst-zacht);
+  padding: 6px 14px; border-radius: 999px; font-size: 13px; white-space: nowrap;
+}
+.weergaven button.actief { background: var(--vlak); color: var(--tekst); font-weight: 600; box-shadow: 0 1px 3px rgba(0,0,0,.1); }
+
+.werkbalk-acties { display: flex; gap: 4px; margin-left: auto; align-items: center; }
+
+.icoonknop {
+  width: 38px; height: 38px; border-radius: 10px;
+  border: 1px solid var(--rand); background: var(--vlak);
+  display: grid; place-items: center; font-size: 16px; color: var(--tekst);
+}
+.icoonknop:hover:not(:disabled) { background: var(--vlak-3); }
+.icoonknop:disabled { opacity: .35; cursor: default; }
+.icoonknop.breed { width: 42px; }
+
+.menu {
+  position: absolute; top: calc(100% + 6px); right: 12px;
+  background: var(--vlak); border: 1px solid var(--rand); border-radius: 14px;
+  box-shadow: var(--schaduw); padding: 6px; min-width: 232px; display: none; z-index: 60;
+}
+body.menu-open .menu { display: block; }
+.menu button {
+  display: block; width: 100%; text-align: left; padding: 10px 12px;
+  border: 0; background: transparent; border-radius: 9px; font-size: 14px;
+}
+.menu button:hover { background: var(--vlak-3); }
+.menu hr { border: 0; border-top: 1px solid var(--rand); margin: 5px 8px; }
+
+/* ---------------------------------------------------------- werkvlak */
+.werkvlak {
+  position: relative;
+  display: grid;
+  grid-template-columns: var(--paneel-breedte) 1fr var(--paneel-breedte);
+  height: calc(100% - var(--werkbalk-hoogte) - env(safe-area-inset-top));
+}
+
+.paneel {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  background: var(--vlak);
+  padding: 14px 14px calc(24px + env(safe-area-inset-bottom));
+  border-right: 1px solid var(--rand);
+}
+.paneel.rechts { border-right: 0; border-left: 1px solid var(--rand); }
+
+.tekenvlak { position: relative; background: var(--vlak-2); overflow: hidden; }
+.plan { width: 100%; height: 100%; display: block; touch-action: none; user-select: none; -webkit-user-select: none; }
+.plan text { user-select: none; }
+.comp .hit { cursor: pointer; }
+
+.zoomknoppen {
+  position: absolute; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom));
+  display: flex; flex-direction: column; gap: 6px;
+}
+.zoomknoppen .icoonknop { box-shadow: var(--schaduw); }
+
+/* ---------------------------------------------------------- verdeelbord */
+.bordvlak { display: none; grid-column: 2 / 3; overflow-y: auto; background: var(--vlak-2); }
+.werkvlak.toon-bord .tekenvlak { display: none; }
+.werkvlak.toon-bord .bordvlak { display: block; }
+.bord-inhoud { padding: 20px 20px calc(40px + env(safe-area-inset-bottom)); max-width: 1100px; margin: 0 auto; }
+.bord-inhoud h2 { margin: 22px 0 6px; font-size: 18px; }
+.bord-inhoud h2:first-child { margin-top: 0; }
+.bord-uitleg { margin: 0 0 14px; color: var(--tekst-zacht); font-size: 13px; }
+.bord-schema { overflow-x: auto; background: var(--vlak); border: 1px solid var(--rand); border-radius: 14px; padding: 10px; }
+.bord-schema svg { max-width: none; }
+
+.kring-kaart {
+  background: var(--vlak); border: 1px solid var(--rand); border-left: 4px solid var(--kring, var(--accent));
+  border-radius: 12px; padding: 12px 14px; margin-bottom: 10px;
+}
+.kring-kaart header { display: flex; align-items: center; gap: 12px; }
+.kring-kaart h4 { font-size: 15px; }
+.kring-kaart header p { margin: 2px 0 0; font-size: 12.5px; color: var(--tekst-zacht); }
+.kring-cijfers { margin-left: auto; display: flex; gap: 12px; font-size: 12px; color: var(--tekst-zacht); }
+.kring-nr {
+  flex: none; width: 28px; height: 28px; border-radius: 8px; background: var(--geen-kring);
+  color: #fff; display: grid; place-items: center; font-weight: 700; font-size: 13px;
+}
+.kring-ruimte { margin-top: 10px; font-size: 13px; }
+.kring-ruimte strong { color: var(--tekst-zacht); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+.kring-ruimte ul, .kring-kaart ul.plat { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 14px; }
+.kring-ruimte li, .kring-kaart ul.plat li { display: flex; align-items: center; gap: 6px; }
+.mini-sym { color: var(--symbool); display: inline-flex; }
+
+/* ---------------------------------------------------------- paneelonderdelen */
+.paneel-kop h2 { font-size: 16px; }
+.paneel-kop p { margin: 4px 0 14px; font-size: 12.5px; color: var(--tekst-zacht); }
+
+.tool-rij { display: grid; grid-template-columns: repeat(auto-fit, minmax(58px, 1fr)); gap: 6px; margin-bottom: 12px; }
+.tool {
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  padding: 9px 4px; border: 1px solid var(--rand); border-radius: 11px;
+  background: var(--vlak); font-size: 10.5px; color: var(--tekst-zacht);
+}
+.tool-icoon { font-size: 17px; line-height: 1; color: var(--tekst); }
+.tool.actief { background: var(--accent-zacht); border-color: var(--accent); color: var(--accent); }
+.tool.actief .tool-icoon { color: var(--accent); }
+
+.veld { display: block; margin-bottom: 10px; }
+.veld > span { display: block; font-size: 11.5px; color: var(--tekst-zacht); margin-bottom: 4px; }
+.veld input, .veld select, .veld textarea {
+  width: 100%; padding: 9px 10px; border: 1px solid var(--rand);
+  border-radius: 9px; background: var(--vlak-2);
+}
+.veld input[type="color"] { padding: 2px; height: 38px; }
+.veld input[type="range"] { padding: 0; background: transparent; }
+.veld-rij { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.schakel { display: flex; align-items: center; gap: 8px; font-size: 13px; padding: 5px 0; }
+.zoek { width: 100%; padding: 9px 11px; border: 1px solid var(--rand); border-radius: 9px; background: var(--vlak-2); margin-bottom: 10px; }
+
+.lijst-kop { display: flex; align-items: center; gap: 8px; margin: 16px 0 7px; }
+.lijst-kop h3 { font-size: 11.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--tekst-zacht); }
+.lijst-kop .mini { margin-left: auto; }
+
+.lijst { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.rij {
+  display: flex; align-items: center; gap: 8px; padding: 8px 9px;
+  border: 1px solid var(--rand); border-radius: 10px; background: var(--vlak-2); font-size: 13px;
+}
+.rij:hover { border-color: var(--accent); }
+.rij.geselecteerd { border-color: var(--accent); background: var(--accent-zacht); }
+.rij-naam { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rij-meta { font-size: 11.5px; color: var(--tekst-zacht); white-space: nowrap; }
+.rij-icoon { color: var(--symbool); display: inline-flex; }
+.kleurbol { width: 13px; height: 13px; border-radius: 4px; border: 1px solid var(--rand); flex: none; }
+.leeg { color: var(--tekst-zacht); font-size: 12.5px; padding: 6px 2px; }
+
+.palet { display: grid; grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)); gap: 6px; }
+.palet-knop {
+  display: flex; flex-direction: column; align-items: center; gap: 5px;
+  padding: 9px 4px; border: 1px solid var(--rand); border-radius: 11px;
+  background: var(--vlak-2); color: var(--symbool); text-align: center;
+}
+.palet-knop span { font-size: 9.8px; line-height: 1.2; color: var(--tekst-zacht); }
+.palet-knop:hover { border-color: var(--accent); }
+.palet-knop.actief { border-color: var(--accent); background: var(--accent-zacht); color: var(--accent); }
+.palet-knop.actief span { color: var(--accent); }
+
+.knop-rij { display: flex; gap: 8px; margin: 12px 0; flex-wrap: wrap; }
+.knop {
+  flex: 1; min-width: 118px; padding: 10px 12px; border: 1px solid var(--rand);
+  border-radius: 10px; background: var(--vlak-2); font-size: 13.5px; font-weight: 500;
+}
+.knop:hover { border-color: var(--accent); }
+.knop.primair { background: var(--accent); color: #fff; border-color: var(--accent); }
+.knop.gevaar { color: var(--fout); }
+.mini {
+  border: 1px solid var(--rand); background: var(--vlak); border-radius: 7px;
+  padding: 3px 8px; font-size: 12px; line-height: 1.5;
+}
+.mini.gevaar { color: var(--fout); border-color: transparent; background: transparent; font-size: 16px; padding: 0 5px; }
+.inline-invoer { width: 100%; border: 0; background: transparent; padding: 1px 0; font-size: 13px; font-weight: 600; }
+.inline-invoer:focus { outline: 1px solid var(--accent); border-radius: 5px; }
+.mini-select { border: 1px solid var(--rand); background: var(--vlak); border-radius: 7px; padding: 3px 4px; font-size: 11.5px; }
+
+.kring-rij { display: flex; align-items: center; gap: 9px; padding: 8px 9px; border: 1px solid var(--rand); border-radius: 10px; background: var(--vlak-2); }
+.kring-rij.actief { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-zacht); }
+.kring-info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.kring-detail { border: 1px solid var(--rand); border-left: 3px solid var(--kring); border-radius: 11px; padding: 10px 11px; margin-top: 12px; background: var(--vlak-2); }
+.kring-samenvatting { font-size: 12.5px; color: var(--tekst-zacht); border-left: 3px solid var(--kring); padding-left: 9px; margin: -4px 0 12px; }
+.dif-rij { flex-wrap: wrap; }
+
+.groot-symbool { display: grid; place-items: center; padding: 10px 0 14px; }
+.cijfers { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin: 12px 0; }
+.cijfers div { background: var(--vlak-2); border: 1px solid var(--rand); border-radius: 11px; padding: 9px 11px; }
+.cijfers strong { display: block; font-size: 19px; }
+.cijfers span { font-size: 11px; color: var(--tekst-zacht); }
+
+.hint { font-size: 12.5px; color: var(--tekst-zacht); background: var(--vlak-3); border-radius: 9px; padding: 9px 11px; margin: 8px 0; }
+.actief-hint { border: 1px solid var(--accent); background: var(--accent-zacht); color: var(--tekst); }
+.voetnoot { font-size: 11px; color: var(--tekst-zacht); margin-top: 14px; }
+.ok-tekst { color: var(--ok); font-size: 12.5px; }
+.fout-tekst { color: var(--fout); }
+.badge { margin-left: auto; background: var(--vlak-3); border-radius: 999px; padding: 1px 8px; font-size: 11px; }
+.badge.rood { background: var(--fout); color: #fff; }
+
+.meldingen { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 5px; }
+.melding { font-size: 12.5px; padding: 8px 10px; border-radius: 9px; border-left: 3px solid var(--tekst-zacht); background: var(--vlak-2); }
+.melding[data-actie] { cursor: pointer; }
+.melding.fout { border-left-color: var(--fout); color: var(--fout); }
+.melding.waarschuwing { border-left-color: var(--waarschuwing); }
+.melding.info { border-left-color: var(--tekst-zacht); color: var(--tekst-zacht); }
+
+/* ---------------------------------------------------------- dialogen */
+.dialoog {
+  border: 0; border-radius: 16px; padding: 24px; max-width: 540px; width: calc(100% - 32px);
+  background: var(--vlak); color: var(--tekst); box-shadow: var(--schaduw);
+}
+.dialoog::backdrop { background: rgba(15, 23, 42, .5); }
+.dialoog h2 { font-size: 19px; margin-bottom: 8px; }
+.dialoog h3 { font-size: 13px; text-transform: uppercase; letter-spacing: .05em; color: var(--tekst-zacht); margin: 18px 0 6px; }
+.dialoog ul, .dialoog ol { margin: 0; padding-left: 18px; font-size: 13.5px; }
+.dialoog li { margin-bottom: 6px; }
+.dialoog .toetsen { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 4px; }
+kbd { background: var(--vlak-3); border: 1px solid var(--rand); border-radius: 5px; padding: 1px 5px; font-size: 11.5px; font-family: inherit; }
+.dialoog-knoppen { display: flex; gap: 8px; margin-top: 20px; }
+.stappen-uitleg li { margin-bottom: 8px; }
+
+/* ---------------------------------------------------------- smal scherm */
+.alleen-smal { display: none; }
+.paneel-scherm { display: none; }
+
+@media (max-width: 1000px) {
+  .alleen-smal { display: grid; }
+  .stappen button span { display: none; }
+  .stappen button { padding: 7px 10px; }
+  .merk-tekst { display: none; }
+  .werkvlak, .werkvlak.met-selectie { grid-template-columns: 1fr; }
+  .paneel {
+    position: absolute; top: 0; bottom: 0; width: min(330px, 86vw); z-index: 30;
+    box-shadow: var(--schaduw); transition: transform .2s ease;
+  }
+  .paneel.links { left: 0; transform: translateX(-102%); }
+  .paneel.rechts { right: 0; transform: translateX(102%); display: block; border-left: 1px solid var(--rand); }
+  .werkvlak:not(.met-selectie) .paneel.rechts { display: block; }
+  body.links-open .paneel.links, body.rechts-open .paneel.rechts { transform: none; }
+  body.links-open .paneel-scherm, body.rechts-open .paneel-scherm {
+    display: block; position: absolute; inset: 0; z-index: 25; background: rgba(15, 23, 42, .25);
+  }
+  .tekenvlak, .bordvlak { grid-column: 1 / -1; }
+}
+
+@media (max-width: 620px) {
+  .weergaven button { padding: 6px 10px; font-size: 12px; }
+  .stappen { margin-left: 4px; }
+}
+
+/* ---------------------------------------------------------- afdrukken */
+.print-vlak { display: none; }
+
+@media print {
+  @page { size: A4 landscape; margin: 12mm; }
+  body.afdrukken .werkbalk,
+  body.afdrukken .werkvlak { display: none !important; }
+  body.afdrukken { overflow: visible; background: #fff; color: #000; }
+  body.afdrukken .print-vlak { display: block; }
+  .print-blad { break-after: page; page-break-after: always; }
+  .print-blad:last-child { break-after: auto; page-break-after: auto; }
+  .print-blad h1 { font-size: 18pt; margin: 0 0 2mm; }
+  .print-blad h2 { font-size: 13pt; margin: 0 0 3mm; }
+  .print-meta { font-size: 9pt; color: #555; margin: 0 0 5mm; }
+  .print-plan svg, .print-bord svg { max-width: 100%; height: auto; }
+  .print-lijst .kring-kaart { border: 1px solid #bbb; break-inside: avoid; page-break-inside: avoid; background: #fff; }
+  .print-voet { font-size: 8pt; color: #666; margin-top: 6mm; }
+}
+
+.mini.toewijs { font-size: 15px; line-height: 1; padding: 3px 6px; color: var(--tekst-zacht); }
+.mini.toewijs.aan { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+</style>
+</head>
+<body>
+
+<header class="werkbalk">
+  <button class="icoonknop alleen-smal" data-app="links" title="Gereedschap">☰</button>
+  <div class="merk">
+    <span class="logo">⚡</span>
+    <span class="merk-tekst"><strong>Elek</strong><small id="projectnaam">Nieuw project</small></span>
+  </div>
+
+  <nav class="stappen" aria-label="Stappen">
+    <button data-app="stap" data-stap="1" class="actief"><b>1</b><span>Plattegrond</span></button>
+    <button data-app="stap" data-stap="2"><b>2</b><span>Componenten</span></button>
+    <button data-app="stap" data-stap="3"><b>3</b><span>Kringen</span></button>
+  </nav>
+
+  <div class="weergaven">
+    <button data-app="weergave" data-weergave="plan" class="actief">Plan</button>
+    <button data-app="weergave" data-weergave="bord">Verdeelbord</button>
+  </div>
+
+  <div class="werkbalk-acties">
+    <button class="icoonknop" data-app="undo" title="Ongedaan maken (Ctrl+Z)">↶</button>
+    <button class="icoonknop" data-app="redo" title="Opnieuw (Ctrl+Shift+Z)">↷</button>
+    <button class="icoonknop breed" data-app="menu" title="Meer">⋯</button>
+    <button class="icoonknop alleen-smal" data-app="rechts" title="Eigenschappen">☷</button>
+  </div>
+
+  <div class="menu" id="menu">
+    <button data-app="nieuw">Nieuw project</button>
+    <button data-app="open">Project openen…</button>
+    <button data-app="bewaar">Project opslaan (.json)</button>
+    <hr>
+    <button data-app="png">Plan als PNG</button>
+    <button data-app="svg">Plan als SVG</button>
+    <button data-app="print">Afdrukken / PDF</button>
+    <hr>
+    <button data-app="voorbeeld">Voorbeeldwoning laden</button>
+    <button data-app="help">Uitleg &amp; sneltoetsen</button>
+  </div>
+</header>
+
+<main id="werkvlak" class="werkvlak">
+  <aside id="paneel-links" class="paneel links"></aside>
+
+  <section class="tekenvlak">
+    <svg id="plan" class="plan" xmlns="http://www.w3.org/2000/svg"></svg>
+    <div class="zoomknoppen">
+      <button class="icoonknop" data-app="zoom-in" title="Inzoomen">+</button>
+      <button class="icoonknop" data-app="zoom-uit" title="Uitzoomen">−</button>
+      <button class="icoonknop" data-app="zoom-alles" title="Alles in beeld">⤢</button>
+    </div>
+  </section>
+
+  <section class="bordvlak">
+    <div class="bord-inhoud">
+      <h2>Verdeelbord</h2>
+      <p class="bord-uitleg">Eendraadschema van teller tot kring, en daaronder elk component met zijn zekering.</p>
+      <div id="bord-schema" class="bord-schema"></div>
+      <h2>Componenten per zekering</h2>
+      <div id="bord-lijst" class="bord-lijst"></div>
+    </div>
+  </section>
+
+  <aside id="paneel-rechts" class="paneel rechts"></aside>
+  <div class="paneel-scherm" data-app="sluit-paneel"></div>
+</main>
+
+<input type="file" id="bestand-invoer" accept=".json,application/json" hidden>
+<div id="print-vlak" class="print-vlak"></div>
+
+<dialog id="welkom" class="dialoog">
+  <h2>Welkom bij Elek</h2>
+  <p>Maak het elektrisch dossier van een woning in drie stappen:</p>
+  <ol class="stappen-uitleg">
+    <li><strong>Plattegrond</strong> — teken de ruimtes van de woning.</li>
+    <li><strong>Componenten</strong> — plaats lichtpunten, schakelaars, stopcontacten en toestellen.</li>
+    <li><strong>Kringen</strong> — bepaal per component op welke zekering hij komt en bekijk het verdeelbord.</li>
+  </ol>
+  <div class="dialoog-knoppen">
+    <button class="knop" data-app="voorbeeld">Voorbeeldwoning bekijken</button>
+    <button class="knop primair" data-app="sluit-welkom">Zelf beginnen</button>
+  </div>
+</dialog>
+
+<dialog id="help" class="dialoog">
+  <h2>Uitleg &amp; sneltoetsen</h2>
+  <h3>Werkwijze</h3>
+  <ul>
+    <li><strong>Stap 1:</strong> kies “Ruimte” en sleep een rechthoek, of “Vorm” en klik punt per punt (dubbelklik of Enter sluit de vorm). Sleep een geselecteerde ruimte om ze te verplaatsen; sleep de hoekpunten om ze te vervormen.</li>
+    <li><strong>Stap 2:</strong> kies een symbool in het palet en klik op het plan. Schakelaars en stopcontacten klikken automatisch tegen de dichtstbijzijnde muur. Met “Verbinden” koppel je een schakelaar aan het lichtpunt dat hij bedient.</li>
+    <li><strong>Stap 3:</strong> klik “Automatisch verdelen” voor een voorstel, of maak zelf kringen en klik componenten aan om ze toe te wijzen. De controlelijst waarschuwt voor te veel punten per kring, een te zware automaat of een ontbrekend differentieel van 30 mA.</li>
+  </ul>
+  <h3>Sneltoetsen</h3>
+  <ul class="toetsen">
+    <li><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> stap kiezen</li>
+    <li><kbd>Esc</kbd> gereedschap loslaten</li>
+    <li><kbd>Del</kbd> selectie verwijderen</li>
+    <li><kbd>R</kbd> draaien (met <kbd>Shift</kbd> terug)</li>
+    <li><kbd>Ctrl</kbd>+<kbd>Z</kbd> ongedaan maken</li>
+    <li><kbd>Ctrl</kbd>+<kbd>D</kbd> dupliceren</li>
+    <li><kbd>Ctrl</kbd>+<kbd>S</kbd> project opslaan</li>
+    <li><kbd>0</kbd> alles in beeld · <kbd>+</kbd> <kbd>−</kbd> zoomen</li>
+    <li>Pijltjes verplaatsen de selectie</li>
+  </ul>
+  <h3>Op iPad</h3>
+  <p>Eén vinger sleept het plan, twee vingers zoomen. Tik een component aan om hem te selecteren en sleep hem naar de juiste plaats. Installeer de app via <em>Deel → Zet op beginscherm</em>.</p>
+  <p class="voetnoot">De controles zijn gangbare AREI-vuistregels en vervangen geen keuring door een erkend organisme.</p>
+  <div class="dialoog-knoppen"><button class="knop primair" data-app="sluit-help">Sluiten</button></div>
+</dialog>
+
+<script>
+/* ---- geometry.js ---- */
+// Meetkundige hulpfuncties. Alle coördinaten in meter.
+
+const afstand = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+
+function snap(waarde, raster) {
+  if (!raster) return waarde;
+  return Math.round(waarde / raster) * raster;
+}
+
+function snapPunt(p, raster) {
+  return { x: snap(p.x, raster), y: snap(p.y, raster) };
+}
+
+function puntInPolygoon(p, punten) {
+  let binnen = false;
+  for (let i = 0, j = punten.length - 1; i < punten.length; j = i++) {
+    const a = punten[i], b = punten[j];
+    const snijdt = (a.y > p.y) !== (b.y > p.y) &&
+      p.x < ((b.x - a.x) * (p.y - a.y)) / (b.y - a.y || 1e-9) + a.x;
+    if (snijdt) binnen = !binnen;
+  }
+  return binnen;
+}
+
+function oppervlakte(punten) {
+  let s = 0;
+  for (let i = 0, j = punten.length - 1; i < punten.length; j = i++) {
+    s += (punten[j].x + punten[i].x) * (punten[j].y - punten[i].y);
+  }
+  return Math.abs(s / 2);
+}
+
+function zwaartepunt(punten) {
+  if (!punten.length) return { x: 0, y: 0 };
+  const s = punten.reduce((acc, p) => ({ x: acc.x + p.x, y: acc.y + p.y }), { x: 0, y: 0 });
+  return { x: s.x / punten.length, y: s.y / punten.length };
+}
+
+function omhullende(punten) {
+  if (!punten || !punten.length) return null;
+  let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity;
+  for (const p of punten) {
+    x1 = Math.min(x1, p.x); y1 = Math.min(y1, p.y);
+    x2 = Math.max(x2, p.x); y2 = Math.max(y2, p.y);
+  }
+  return { x1, y1, x2, y2, w: x2 - x1, h: y2 - y1 };
+}
+
+/** Dichtstbijzijnde punt op lijnstuk a-b, met afstand en richtingshoek. */
+function projecteerOpSegment(p, a, b) {
+  const vx = b.x - a.x, vy = b.y - a.y;
+  const len2 = vx * vx + vy * vy;
+  let t = len2 === 0 ? 0 : ((p.x - a.x) * vx + (p.y - a.y) * vy) / len2;
+  t = Math.max(0, Math.min(1, t));
+  const punt = { x: a.x + t * vx, y: a.y + t * vy };
+  return { punt, afstand: afstand(p, punt), hoek: (Math.atan2(vy, vx) * 180) / Math.PI, t };
+}
+
+/** Segmenten van een polygoon (gesloten). */
+function segmenten(punten) {
+  const uit = [];
+  for (let i = 0; i < punten.length; i++) {
+    uit.push([punten[i], punten[(i + 1) % punten.length]]);
+  }
+  return uit;
+}
+
+function rechthoek(a, b) {
+  return [
+    { x: a.x, y: a.y },
+    { x: b.x, y: a.y },
+    { x: b.x, y: b.y },
+    { x: a.x, y: b.y },
+  ];
+}
+
+/** Beperkt een lijn tot horizontaal/verticaal/45° (shift-toets). */
+function orthogonaal(a, b) {
+  const dx = b.x - a.x, dy = b.y - a.y;
+  if (Math.abs(dx) > Math.abs(dy) * 2) return { x: b.x, y: a.y };
+  if (Math.abs(dy) > Math.abs(dx) * 2) return { x: a.x, y: b.y };
+  const m = (Math.abs(dx) + Math.abs(dy)) / 2;
+  return { x: a.x + Math.sign(dx) * m, y: a.y + Math.sign(dy) * m };
+}
+
+const graden = (rad) => (rad * 180) / Math.PI;
+const radialen = (deg) => (deg * Math.PI) / 180;
+
+/* ---- model.js ---- */
+// Datamodel, catalogi en normtabellen voor Elek.
+// Alle maten in het project zijn in meter, hoeken in graden.
+
+const PROJECT_VERSION = 1;
+
+function uid(prefix = 'id') {
+  return prefix + '_' + Math.random().toString(36).slice(2, 9) + Date.now().toString(36).slice(-3);
+}
+
+/* ------------------------------------------------------------------ *
+ * Componentcatalogus
+ * kringtype: verlichting | stopcontact | vast | bediening | zwakstroom | verdeling
+ * wand   : component hoort tegen een muur (wordt op de dichtstbijzijnde wand geklikt)
+ * eigen  : toestel hoort op een eigen kring (AREI: eigen kring per vast toestel)
+ * telt   : telt mee voor de regel "max. 8 punten per kring"
+ * ------------------------------------------------------------------ */
+const CATALOG = [
+  // --- Verlichting ---------------------------------------------------
+  { key: 'lichtpunt',     naam: 'Lichtpunt plafond',   groep: 'Verlichting',      kringtype: 'verlichting', wand: false, telt: true,  hoogte: null, watt: 60 },
+  { key: 'wandlicht',     naam: 'Wandlichtpunt',       groep: 'Verlichting',      kringtype: 'verlichting', wand: true,  telt: true,  hoogte: 200, watt: 40 },
+  { key: 'spot',          naam: 'Inbouwspot',          groep: 'Verlichting',      kringtype: 'verlichting', wand: false, telt: true,  hoogte: null, watt: 8 },
+  { key: 'tl',            naam: 'TL / lichtbalk',      groep: 'Verlichting',      kringtype: 'verlichting', wand: false, telt: true,  hoogte: null, watt: 36 },
+  { key: 'buitenlicht',   naam: 'Buitenverlichting',   groep: 'Verlichting',      kringtype: 'verlichting', wand: true,  telt: true,  hoogte: 220, watt: 20, nat: true },
+  { key: 'noodlicht',     naam: 'Noodverlichting',     groep: 'Verlichting',      kringtype: 'verlichting', wand: true,  telt: true,  hoogte: 220, watt: 8 },
+  { key: 'ledstrip',      naam: 'Led-strip / voeding', groep: 'Verlichting',      kringtype: 'verlichting', wand: false, telt: true,  hoogte: null, watt: 30 },
+
+  // --- Bediening -----------------------------------------------------
+  { key: 'schak1',        naam: 'Enkelpolige schakelaar', groep: 'Bediening',     kringtype: 'bediening',   wand: true,  telt: false, hoogte: 110 },
+  { key: 'schak2',        naam: 'Dubbele schakelaar',     groep: 'Bediening',     kringtype: 'bediening',   wand: true,  telt: false, hoogte: 110 },
+  { key: 'schak2p',       naam: 'Tweepolige schakelaar',  groep: 'Bediening',     kringtype: 'bediening',   wand: true,  telt: false, hoogte: 110 },
+  { key: 'wissel',        naam: 'Wisselschakelaar',       groep: 'Bediening',     kringtype: 'bediening',   wand: true,  telt: false, hoogte: 110 },
+  { key: 'kruis',         naam: 'Kruisschakelaar',        groep: 'Bediening',     kringtype: 'bediening',   wand: true,  telt: false, hoogte: 110 },
+  { key: 'dimmer',        naam: 'Dimmer',                 groep: 'Bediening',     kringtype: 'bediening',   wand: true,  telt: false, hoogte: 110 },
+  { key: 'drukknop',      naam: 'Drukknop',               groep: 'Bediening',     kringtype: 'bediening',   wand: true,  telt: false, hoogte: 110 },
+  { key: 'bewegingsmelder', naam: 'Bewegingsmelder',      groep: 'Bediening',     kringtype: 'bediening',   wand: true,  telt: false, hoogte: 230 },
+  { key: 'trekschak',     naam: 'Trekschakelaar',         groep: 'Bediening',     kringtype: 'bediening',   wand: false, telt: false, hoogte: null },
+  { key: 'tijdschak',     naam: 'Tijdschakelaar',         groep: 'Bediening',     kringtype: 'bediening',   wand: true,  telt: false, hoogte: 110 },
+
+  // --- Stopcontacten -------------------------------------------------
+  { key: 'sc1',           naam: 'Stopcontact enkel',      groep: 'Stopcontacten', kringtype: 'stopcontact', wand: true,  telt: true,  hoogte: 30 },
+  { key: 'sc2',           naam: 'Stopcontact dubbel',     groep: 'Stopcontacten', kringtype: 'stopcontact', wand: true,  telt: true,  hoogte: 30, punten: 2 },
+  { key: 'sc3',           naam: 'Stopcontact drievoudig', groep: 'Stopcontacten', kringtype: 'stopcontact', wand: true,  telt: true,  hoogte: 30, punten: 3 },
+  { key: 'scwd',          naam: 'Stopcontact waterdicht', groep: 'Stopcontacten', kringtype: 'stopcontact', wand: true,  telt: true,  hoogte: 110, nat: true },
+  { key: 'scbuiten',      naam: 'Stopcontact buiten',     groep: 'Stopcontacten', kringtype: 'stopcontact', wand: true,  telt: true,  hoogte: 60, nat: true },
+  { key: 'scvloer',       naam: 'Vloercontactdoos',       groep: 'Stopcontacten', kringtype: 'stopcontact', wand: false, telt: true,  hoogte: 0 },
+  { key: 'scgeschakeld',  naam: 'Geschakeld stopcontact', groep: 'Stopcontacten', kringtype: 'stopcontact', wand: true,  telt: true,  hoogte: 30 },
+  { key: 'scwerkblad',    naam: 'Stopcontact werkblad',   groep: 'Stopcontacten', kringtype: 'stopcontact', wand: true,  telt: true,  hoogte: 110 },
+
+  // --- Vaste toestellen ----------------------------------------------
+  { key: 'kookplaat',     naam: 'Kookplaat',            groep: 'Vaste toestellen', kringtype: 'vast', wand: true,  telt: false, eigen: true, amp: 32, mm2: 6,   watt: 7400, hoogte: 60 },
+  { key: 'oven',          naam: 'Oven',                 groep: 'Vaste toestellen', kringtype: 'vast', wand: true,  telt: false, eigen: true, amp: 20, mm2: 2.5, watt: 3500, hoogte: 60 },
+  { key: 'vaatwas',       naam: 'Vaatwasser',           groep: 'Vaste toestellen', kringtype: 'vast', wand: true,  telt: false, eigen: true, amp: 16, mm2: 2.5, watt: 2200, hoogte: 60, nat: true },
+  { key: 'wasmachine',    naam: 'Wasmachine',           groep: 'Vaste toestellen', kringtype: 'vast', wand: true,  telt: false, eigen: true, amp: 16, mm2: 2.5, watt: 2200, hoogte: 110, nat: true },
+  { key: 'droogkast',     naam: 'Droogkast',            groep: 'Vaste toestellen', kringtype: 'vast', wand: true,  telt: false, eigen: true, amp: 16, mm2: 2.5, watt: 2700, hoogte: 110, nat: true },
+  { key: 'boiler',        naam: 'Boiler / warmwater',   groep: 'Vaste toestellen', kringtype: 'vast', wand: true,  telt: false, eigen: true, amp: 16, mm2: 2.5, watt: 2400, hoogte: 180, nat: true },
+  { key: 'koelkast',      naam: 'Koelkast',             groep: 'Vaste toestellen', kringtype: 'vast', wand: true,  telt: true,  amp: 16, mm2: 2.5, watt: 150, hoogte: 110 },
+  { key: 'diepvries',     naam: 'Diepvriezer',          groep: 'Vaste toestellen', kringtype: 'vast', wand: true,  telt: true,  amp: 16, mm2: 2.5, watt: 200, hoogte: 110 },
+  { key: 'dampkap',       naam: 'Dampkap',              groep: 'Vaste toestellen', kringtype: 'vast', wand: true,  telt: true,  amp: 16, mm2: 2.5, watt: 250, hoogte: 200 },
+  { key: 'ventilatie',    naam: 'Ventilatie-unit',      groep: 'Vaste toestellen', kringtype: 'vast', wand: false, telt: false, eigen: true, amp: 16, mm2: 2.5, watt: 300 },
+  { key: 'airco',         naam: 'Airco',                groep: 'Vaste toestellen', kringtype: 'vast', wand: true,  telt: false, eigen: true, amp: 20, mm2: 2.5, watt: 3000, hoogte: 220 },
+  { key: 'warmtepomp',    naam: 'Warmtepomp',           groep: 'Vaste toestellen', kringtype: 'vast', wand: true,  telt: false, eigen: true, amp: 25, mm2: 4,   watt: 5000, hoogte: 60, nat: true },
+  { key: 'laadpaal',      naam: 'Laadpaal EV',          groep: 'Vaste toestellen', kringtype: 'vast', wand: true,  telt: false, eigen: true, amp: 32, mm2: 6,   watt: 7400, hoogte: 120, nat: true },
+  { key: 'convector',     naam: 'Elektrische verwarming', groep: 'Vaste toestellen', kringtype: 'vast', wand: true, telt: false, eigen: true, amp: 16, mm2: 2.5, watt: 2000, hoogte: 30 },
+  { key: 'handdoekdroger', naam: 'Handdoekdroger',      groep: 'Vaste toestellen', kringtype: 'vast', wand: true,  telt: false, eigen: true, amp: 16, mm2: 2.5, watt: 750, hoogte: 150, nat: true },
+  { key: 'poort',         naam: 'Poort / rolluikmotor', groep: 'Vaste toestellen', kringtype: 'vast', wand: true,  telt: false, eigen: true, amp: 16, mm2: 2.5, watt: 500, hoogte: 120 },
+  { key: 'pomp',          naam: 'Pomp',                 groep: 'Vaste toestellen', kringtype: 'vast', wand: true,  telt: false, eigen: true, amp: 16, mm2: 2.5, watt: 750, hoogte: 60, nat: true },
+  { key: 'aansluitdoos',  naam: 'Vast aansluitpunt',    groep: 'Vaste toestellen', kringtype: 'vast', wand: true,  telt: true,  amp: 16, mm2: 2.5, watt: 500, hoogte: 30 },
+
+  // --- Zwakstroom / data ---------------------------------------------
+  { key: 'utp',           naam: 'Datapunt UTP',         groep: 'Zwakstroom',     kringtype: 'zwakstroom', wand: true,  telt: false, hoogte: 30 },
+  { key: 'coax',          naam: 'TV / coax',            groep: 'Zwakstroom',     kringtype: 'zwakstroom', wand: true,  telt: false, hoogte: 30 },
+  { key: 'telefoon',      naam: 'Telefoon',             groep: 'Zwakstroom',     kringtype: 'zwakstroom', wand: true,  telt: false, hoogte: 30 },
+  { key: 'videofoon',     naam: 'Videofoon',            groep: 'Zwakstroom',     kringtype: 'zwakstroom', wand: true,  telt: false, hoogte: 150 },
+  { key: 'bel',           naam: 'Belinstallatie',       groep: 'Zwakstroom',     kringtype: 'zwakstroom', wand: true,  telt: false, hoogte: 220 },
+  { key: 'rookmelder',    naam: 'Rookmelder',           groep: 'Zwakstroom',     kringtype: 'zwakstroom', wand: false, telt: false },
+  { key: 'thermostaat',   naam: 'Thermostaat',          groep: 'Zwakstroom',     kringtype: 'zwakstroom', wand: true,  telt: false, hoogte: 150 },
+  { key: 'wifi',          naam: 'Wifi access point',    groep: 'Zwakstroom',     kringtype: 'zwakstroom', wand: false, telt: false },
+  { key: 'alarm',         naam: 'Alarm / detector',     groep: 'Zwakstroom',     kringtype: 'zwakstroom', wand: true,  telt: false, hoogte: 230 },
+  { key: 'luidspreker',   naam: 'Luidspreker',          groep: 'Zwakstroom',     kringtype: 'zwakstroom', wand: false, telt: false },
+
+  // --- Verdeling ------------------------------------------------------
+  { key: 'verdeelbord',   naam: 'Verdeelbord',          groep: 'Verdeling',      kringtype: 'verdeling',  wand: true,  telt: false, hoogte: 150 },
+  { key: 'teller',        naam: 'Meter / teller',       groep: 'Verdeling',      kringtype: 'verdeling',  wand: true,  telt: false, hoogte: 150 },
+  { key: 'aarding',       naam: 'Aardingsklem',         groep: 'Verdeling',      kringtype: 'verdeling',  wand: true,  telt: false, hoogte: 30 },
+  { key: 'omvormer',      naam: 'Omvormer PV',          groep: 'Verdeling',      kringtype: 'verdeling',  wand: true,  telt: false, hoogte: 180 },
+  { key: 'noodstop',      naam: 'Noodstop',             groep: 'Verdeling',      kringtype: 'verdeling',  wand: true,  telt: false, hoogte: 150 },
+];
+
+const CATALOG_BY_KEY = Object.fromEntries(CATALOG.map((c) => [c.key, c]));
+const GROEPEN = [...new Set(CATALOG.map((c) => c.groep))];
+
+function def(key) {
+  return CATALOG_BY_KEY[key] || CATALOG_BY_KEY.lichtpunt;
+}
+
+/** Aantal "punten" dat een component inbrengt in de max-8-regel. */
+function puntenVan(comp) {
+  const d = def(comp.type);
+  if (!d.telt) return 0;
+  return d.punten || 1;
+}
+
+/* ------------------------------------------------------------------ *
+ * Kabel- en beveiligingstabel (AREI, huishoudelijk)
+ * ------------------------------------------------------------------ */
+const KABELTABEL = [
+  { mm2: 1.5, maxAmp: 16 },
+  { mm2: 2.5, maxAmp: 20 },
+  { mm2: 4,   maxAmp: 25 },
+  { mm2: 6,   maxAmp: 32 },
+  { mm2: 10,  maxAmp: 40 },
+  { mm2: 16,  maxAmp: 63 },
+];
+
+const AMPERES = [2, 6, 10, 13, 16, 20, 25, 32, 40, 50, 63];
+const SECTIES = KABELTABEL.map((k) => k.mm2);
+
+function maxAmpVoor(mm2) {
+  const rij = KABELTABEL.find((k) => k.mm2 === Number(mm2));
+  return rij ? rij.maxAmp : 0;
+}
+
+function minSectieVoor(amp) {
+  const rij = KABELTABEL.find((k) => k.maxAmp >= Number(amp));
+  return rij ? rij.mm2 : 16;
+}
+
+/** Standaardinstellingen per kringtype. */
+const KRINGSJABLOON = {
+  verlichting: { amp: 16, mm2: 1.5, maxPunten: 8, kleur: '#f59e0b', naam: 'Verlichting' },
+  stopcontact: { amp: 20, mm2: 2.5, maxPunten: 8, kleur: '#3b82f6', naam: 'Stopcontacten' },
+  vast:        { amp: 16, mm2: 2.5, maxPunten: 0, kleur: '#10b981', naam: 'Vast toestel' },
+  gemengd:     { amp: 16, mm2: 2.5, maxPunten: 8, kleur: '#a855f7', naam: 'Gemengde kring' },
+};
+
+const KRINGKLEUREN = [
+  '#f59e0b', '#3b82f6', '#10b981', '#a855f7', '#ef4444', '#06b6d4',
+  '#84cc16', '#ec4899', '#f97316', '#14b8a6', '#8b5cf6', '#eab308',
+];
+
+/* ------------------------------------------------------------------ *
+ * Ruimtes
+ * ------------------------------------------------------------------ */
+const RUIMTETYPES = [
+  { key: 'living',    naam: 'Living / woonkamer', kleur: '#e0f2fe' },
+  { key: 'keuken',    naam: 'Keuken',             kleur: '#fef3c7', nat: true },
+  { key: 'slaapkamer', naam: 'Slaapkamer',        kleur: '#ede9fe' },
+  { key: 'badkamer',  naam: 'Badkamer',           kleur: '#cffafe', nat: true, vochtig: true },
+  { key: 'toilet',    naam: 'Toilet',             kleur: '#cffafe', nat: true },
+  { key: 'hal',       naam: 'Hal / gang',         kleur: '#f1f5f9' },
+  { key: 'bureau',    naam: 'Bureau',             kleur: '#dcfce7' },
+  { key: 'berging',   naam: 'Berging',            kleur: '#f5f5f4', vochtig: true },
+  { key: 'wasplaats', naam: 'Wasplaats',          kleur: '#cffafe', nat: true, vochtig: true },
+  { key: 'garage',    naam: 'Garage',             kleur: '#e7e5e4', vochtig: true },
+  { key: 'zolder',    naam: 'Zolder',             kleur: '#faf5ff' },
+  { key: 'kelder',    naam: 'Kelder',             kleur: '#e2e8f0', vochtig: true },
+  { key: 'terras',    naam: 'Terras / buiten',    kleur: '#dcfce7', nat: true, vochtig: true, buiten: true },
+  { key: 'technisch', naam: 'Technische ruimte',  kleur: '#fee2e2', vochtig: true },
+  { key: 'overig',    naam: 'Overige ruimte',     kleur: '#f8fafc' },
+];
+
+const RUIMTE_BY_KEY = Object.fromEntries(RUIMTETYPES.map((r) => [r.key, r]));
+
+function ruimteDef(key) {
+  return RUIMTE_BY_KEY[key] || RUIMTE_BY_KEY.overig;
+}
+
+/* ------------------------------------------------------------------ *
+ * Projectfabriek
+ * ------------------------------------------------------------------ */
+function nieuwProject(naam = 'Nieuw project') {
+  const nu = new Date().toISOString();
+  const diffAlgemeen = { id: uid('dif'), naam: 'Algemeen', gevoeligheid: 300, amp: 40, type: 'A' };
+  const diffBad = { id: uid('dif'), naam: 'Vochtige ruimtes', gevoeligheid: 30, amp: 40, type: 'A' };
+  return {
+    version: PROJECT_VERSION,
+    id: uid('prj'),
+    naam,
+    klant: '',
+    adres: '',
+    aangemaakt: nu,
+    gewijzigd: nu,
+    net: { fasen: 1, spanning: 230, hoofdzekering: 40 },
+    plan: {
+      schaal: 1,           // meters per planeenheid (altijd 1, ruimte voor toekomstig gebruik)
+      raster: 0.25,        // rasterafstand in meter
+      niveaus: [{ id: uid('niv'), naam: 'Gelijkvloers' }],
+      ruimtes: [],
+      muren: [],
+    },
+    componenten: [],
+    differentiëlen: [diffAlgemeen, diffBad],
+    kringen: [],
+    verbindingen: [],      // { id, van: schakelaar-id, naar: verbruiker-id }
+  };
+}
+
+/** Zet oudere projectbestanden om naar het huidige formaat. */
+function migreer(p) {
+  if (!p || typeof p !== 'object') return nieuwProject();
+  p.version = p.version || 1;
+  p.plan = p.plan || { raster: 0.25, ruimtes: [], muren: [], niveaus: [] };
+  p.plan.ruimtes = p.plan.ruimtes || [];
+  p.plan.muren = p.plan.muren || [];
+  p.plan.niveaus = p.plan.niveaus && p.plan.niveaus.length ? p.plan.niveaus : [{ id: uid('niv'), naam: 'Gelijkvloers' }];
+  p.componenten = p.componenten || [];
+  p.kringen = p.kringen || [];
+  p.differentiëlen = p.differentiëlen || p.differentielen || [];
+  p.verbindingen = p.verbindingen || [];
+  p.net = p.net || { fasen: 1, spanning: 230, hoofdzekering: 40 };
+  return p;
+}
+
+/* ---- symbols.js ---- */
+// Symbolenbibliotheek: elk symbool wordt getekend in een vak van -50..50
+// rond de oorsprong. De tekenlaag schaalt dit naar de symboolgrootte in meter.
+
+const A = 'stroke-linecap="round" stroke-linejoin="round"';
+
+/** Tekst die rechtop blijft staan, ook als het symbool gedraaid is. */
+function opschrift(tekst, fs, tegenRot = 0) {
+  const draai = tegenRot ? ` transform="rotate(${tegenRot})"` : '';
+  return `<g${draai}><text x="0" y="1" font-size="${fs}" text-anchor="middle" dominant-baseline="central" ` +
+    `stroke="none" fill="currentColor" font-family="system-ui, sans-serif" font-weight="600">${tekst}</text></g>`;
+}
+
+/** Rechthoekig symbool met een korte code, voor toestellen en zwakstroom. */
+function doos(code, opts = {}) {
+  const w = opts.w ?? 46;
+  const h = opts.h ?? 30;
+  const rond = opts.rond ?? 6;
+  const fs = code.length > 2 ? 20 : 26;
+  return `<rect x="${-w}" y="${-h}" width="${w * 2}" height="${h * 2}" rx="${rond}" fill="var(--sym-fill)" ${A}/>` +
+    opschrift(code, fs, opts.tegenRot || 0);
+}
+
+/** Contactdoos: halve cirkel met aardingsstreep (AREI). */
+function contactdoos(stemmen = 1, gevuld = false) {
+  const vul = gevuld ? 'currentColor' : 'var(--sym-fill)';
+  let s = `<path d="M -32 6 A 32 32 0 0 1 32 6 Z" fill="${vul}" ${A}/>`;
+  s += `<line x1="-32" y1="6" x2="32" y2="6" ${A}/>`;
+  const offsets = stemmen === 1 ? [0] : stemmen === 2 ? [-14, 14] : [-20, 0, 20];
+  for (const dx of offsets) s += `<line x1="${dx}" y1="6" x2="${dx}" y2="-40" ${A}/>`;
+  return s;
+}
+
+/** Schakelaarbasis: scharnierpunt met hefboom. */
+function schakelaar(extra = '') {
+  return `<circle cx="-26" cy="20" r="7" fill="currentColor" stroke="none"/>` +
+    `<line x1="-26" y1="20" x2="16" y2="-26" ${A}/>` + extra;
+}
+
+const SYMBOLEN = {
+  // --- Verlichting ---
+  lichtpunt: () =>
+    `<circle cx="0" cy="0" r="24" fill="var(--sym-fill)"/>` +
+    `<line x1="-17" y1="-17" x2="17" y2="17" ${A}/><line x1="17" y1="-17" x2="-17" y2="17" ${A}/>`,
+  wandlicht: () =>
+    `<path d="M -26 26 A 26 26 0 0 1 26 26 Z" fill="var(--sym-fill)" ${A}/>` +
+    `<line x1="-40" y1="26" x2="40" y2="26" ${A}/>` +
+    `<line x1="-14" y1="12" x2="14" y2="12" ${A}/>`,
+  spot: () => `<circle cx="0" cy="0" r="18" fill="var(--sym-fill)"/><circle cx="0" cy="0" r="7" fill="currentColor" stroke="none"/>`,
+  tl: () =>
+    `<rect x="-44" y="-11" width="88" height="22" rx="4" fill="var(--sym-fill)"/>` +
+    `<line x1="-30" y1="0" x2="30" y2="0" ${A}/>`,
+  buitenlicht: () =>
+    `<circle cx="0" cy="0" r="24" fill="var(--sym-fill)"/>` +
+    `<line x1="-17" y1="-17" x2="17" y2="17" ${A}/><line x1="17" y1="-17" x2="-17" y2="17" ${A}/>` +
+    `<path d="M -34 34 A 48 48 0 0 0 34 34" fill="none" ${A}/>`,
+  noodlicht: () =>
+    `<rect x="-30" y="-24" width="60" height="48" rx="5" fill="var(--sym-fill)"/>` +
+    `<line x1="-14" y1="-12" x2="14" y2="12" ${A}/><line x1="14" y1="-12" x2="-14" y2="12" ${A}/>`,
+  ledstrip: () => `<path d="M -44 0 q 11 -18 22 0 q 11 18 22 0 q 11 -18 22 0" fill="none" ${A}/>`,
+
+  // --- Bediening ---
+  schak1: () => schakelaar(),
+  schak2: () => schakelaar(`<line x1="-20" y1="12" x2="22" y2="-34" ${A}/>`),
+  schak2p: () => schakelaar(`<line x1="-6" y1="-2" x2="6" y2="10" ${A}/><line x1="4" y1="-12" x2="16" y2="0" ${A}/>`),
+  wissel: () => schakelaar(`<line x1="16" y1="-26" x2="36" y2="-10" ${A}/><line x1="16" y1="-26" x2="36" y2="-34" ${A}/>`),
+  kruis: () => schakelaar(`<line x1="2" y1="-38" x2="30" y2="-10" ${A}/><line x1="30" y1="-38" x2="2" y2="-10" ${A}/>`),
+  dimmer: () => schakelaar(`<path d="M -34 34 L 6 34 L -34 6 Z" fill="currentColor" stroke="none"/>`),
+  drukknop: () =>
+    `<circle cx="0" cy="4" r="20" fill="var(--sym-fill)"/><circle cx="0" cy="4" r="7" fill="currentColor" stroke="none"/>` +
+    `<line x1="0" y1="-16" x2="0" y2="-34" ${A}/>`,
+  bewegingsmelder: () =>
+    `<path d="M -24 16 A 24 24 0 0 1 24 16 Z" fill="var(--sym-fill)" ${A}/><line x1="-30" y1="16" x2="30" y2="16" ${A}/>` +
+    `<path d="M -30 -6 A 36 36 0 0 1 30 -6" fill="none" ${A}/>` +
+    `<path d="M -40 -22 A 48 48 0 0 1 40 -22" fill="none" ${A}/>`,
+  trekschak: () => schakelaar(`<line x1="16" y1="-26" x2="16" y2="-44" stroke-dasharray="6 6" ${A}/>`),
+  tijdschak: () => schakelaar(`<circle cx="26" cy="-26" r="14" fill="var(--sym-fill)"/><line x1="26" y1="-26" x2="26" y2="-36" ${A}/><line x1="26" y1="-26" x2="34" y2="-22" ${A}/>`),
+
+  // --- Stopcontacten ---
+  sc1: () => contactdoos(1),
+  sc2: () => contactdoos(2),
+  sc3: () => contactdoos(3),
+  scwd: () => contactdoos(1, true),
+  scbuiten: () => contactdoos(1, true) + `<path d="M -40 20 A 48 48 0 0 0 40 20" fill="none" ${A}/>`,
+  scvloer: () => `<rect x="-42" y="-42" width="84" height="66" rx="5" fill="var(--sym-fill)"/>` + contactdoos(1),
+  scgeschakeld: () => contactdoos(1) + `<line x1="20" y1="6" x2="44" y2="-22" ${A}/>`,
+  scwerkblad: () => contactdoos(2) + `<line x1="-40" y1="20" x2="40" y2="20" ${A}/>`,
+
+  // --- Vaste toestellen ---
+  kookplaat: () =>
+    `<rect x="-38" y="-30" width="76" height="60" rx="6" fill="var(--sym-fill)"/>` +
+    `<circle cx="-17" cy="-12" r="8" fill="none" ${A}/><circle cx="17" cy="-12" r="8" fill="none" ${A}/>` +
+    `<circle cx="-17" cy="14" r="8" fill="none" ${A}/><circle cx="17" cy="14" r="8" fill="none" ${A}/>`,
+  oven: () =>
+    `<rect x="-36" y="-32" width="72" height="64" rx="6" fill="var(--sym-fill)"/>` +
+    `<line x1="-36" y1="-12" x2="36" y2="-12" ${A}/><circle cx="0" cy="12" r="12" fill="none" ${A}/>`,
+  vaatwas: (t) => doos('VW', { tegenRot: t }),
+  wasmachine: () => `<rect x="-34" y="-34" width="68" height="68" rx="6" fill="var(--sym-fill)"/><circle cx="0" cy="4" r="18" fill="none" ${A}/><line x1="-34" y1="-18" x2="34" y2="-18" ${A}/>`,
+  droogkast: () => `<rect x="-34" y="-34" width="68" height="68" rx="6" fill="var(--sym-fill)"/><circle cx="0" cy="4" r="18" fill="none" ${A}/><path d="M -22 -22 q 8 -8 16 0 q 8 8 16 0" fill="none" ${A}/>`,
+  boiler: () => `<rect x="-26" y="-36" width="52" height="72" rx="24" fill="var(--sym-fill)"/><path d="M -10 14 q 10 -10 0 -20 M 10 14 q 10 -10 0 -20" fill="none" ${A}/>`,
+  koelkast: () => `<rect x="-28" y="-38" width="56" height="76" rx="6" fill="var(--sym-fill)"/><line x1="-28" y1="0" x2="28" y2="0" ${A}/><line x1="-14" y1="-20" x2="-14" y2="-8" ${A}/><line x1="-14" y1="10" x2="-14" y2="22" ${A}/>`,
+  diepvries: () => `<rect x="-28" y="-38" width="56" height="76" rx="6" fill="var(--sym-fill)"/><line x1="0" y1="-24" x2="0" y2="24" ${A}/><line x1="-16" y1="-8" x2="16" y2="8" ${A}/><line x1="16" y1="-8" x2="-16" y2="8" ${A}/>`,
+  dampkap: () => `<path d="M -40 20 L -22 -20 L 22 -20 L 40 20 Z" fill="var(--sym-fill)" ${A}/><line x1="-14" y1="32" x2="14" y2="32" ${A}/>`,
+  ventilatie: () => `<circle cx="0" cy="0" r="32" fill="var(--sym-fill)"/><path d="M 0 0 q -22 -14 -6 -26 q 20 -2 6 26 M 0 0 q 22 -14 26 6 q -8 18 -26 -6 M 0 0 q 0 26 -20 20 q -12 -16 20 -20" fill="none" ${A}/>`,
+  airco: () => `<rect x="-42" y="-20" width="84" height="40" rx="8" fill="var(--sym-fill)"/><line x1="-28" y1="8" x2="28" y2="8" ${A}/><line x1="-20" y1="-6" x2="20" y2="-6" ${A}/>`,
+  warmtepomp: (t) => doos('WP', { tegenRot: t }),
+  laadpaal: () => `<rect x="-22" y="-38" width="44" height="76" rx="8" fill="var(--sym-fill)"/><path d="M 4 -22 L -8 2 L 4 2 L -4 22" fill="none" ${A}/>`,
+  convector: () => `<rect x="-42" y="-22" width="84" height="44" rx="5" fill="var(--sym-fill)"/><line x1="-42" y1="-6" x2="42" y2="-6" ${A}/><line x1="-42" y1="8" x2="42" y2="8" ${A}/>`,
+  handdoekdroger: () => `<rect x="-26" y="-34" width="52" height="68" rx="6" fill="var(--sym-fill)"/><line x1="-26" y1="-14" x2="26" y2="-14" ${A}/><line x1="-26" y1="4" x2="26" y2="4" ${A}/><line x1="-26" y1="22" x2="26" y2="22" ${A}/>`,
+  poort: () => `<rect x="-42" y="-26" width="84" height="52" rx="5" fill="var(--sym-fill)"/><path d="M -24 12 L 0 -12 L 24 12" fill="none" ${A}/>`,
+  pomp: () => `<circle cx="0" cy="0" r="30" fill="var(--sym-fill)"/><path d="M -14 14 L 14 -14 M 14 -14 L 4 -14 M 14 -14 L 14 -4" fill="none" ${A}/>`,
+  aansluitdoos: () => `<circle cx="0" cy="0" r="26" fill="var(--sym-fill)"/><line x1="0" y1="-26" x2="0" y2="-44" ${A}/><line x1="-12" y1="0" x2="12" y2="0" ${A}/>`,
+
+  // --- Zwakstroom ---
+  utp: (t) => doos('UTP', { tegenRot: t }),
+  coax: (t) => doos('TV', { tegenRot: t }),
+  telefoon: (t) => doos('T', { tegenRot: t }),
+  videofoon: (t) => doos('VF', { tegenRot: t }),
+  bel: () => `<path d="M -26 18 A 26 30 0 0 1 26 18 Z" fill="var(--sym-fill)" ${A}/><line x1="-34" y1="18" x2="34" y2="18" ${A}/><line x1="0" y1="-14" x2="0" y2="-28" ${A}/>`,
+  rookmelder: (t) => `<circle cx="0" cy="0" r="28" fill="var(--sym-fill)" stroke-dasharray="7 6"/>` + opschrift('RM', 22, t),
+  thermostaat: (t) => `<circle cx="0" cy="0" r="28" fill="var(--sym-fill)"/>` + opschrift('T°', 24, t),
+  wifi: () => `<circle cx="0" cy="26" r="7" fill="currentColor" stroke="none"/><path d="M -20 8 A 28 28 0 0 1 20 8" fill="none" ${A}/><path d="M -34 -8 A 48 48 0 0 1 34 -8" fill="none" ${A}/>`,
+  alarm: (t) => doos('AL', { tegenRot: t }),
+  luidspreker: () => `<path d="M -26 -14 L -10 -14 L 10 -30 L 10 30 L -10 14 L -26 14 Z" fill="var(--sym-fill)" ${A}/>`,
+
+  // --- Verdeling ---
+  verdeelbord: () =>
+    `<rect x="-48" y="-30" width="96" height="60" rx="4" fill="var(--sym-fill)"/>` +
+    `<line x1="-30" y1="-30" x2="-30" y2="30" ${A}/><line x1="-12" y1="-30" x2="-12" y2="30" ${A}/>` +
+    `<line x1="6" y1="-30" x2="6" y2="30" ${A}/><line x1="24" y1="-30" x2="24" y2="30" ${A}/>`,
+  teller: (t) => `<circle cx="0" cy="0" r="32" fill="var(--sym-fill)"/>` + opschrift('kWh', 20, t),
+  aarding: () => `<line x1="0" y1="-34" x2="0" y2="2" ${A}/><line x1="-30" y1="2" x2="30" y2="2" ${A}/><line x1="-20" y1="16" x2="20" y2="16" ${A}/><line x1="-10" y1="30" x2="10" y2="30" ${A}/>`,
+  omvormer: () => `<rect x="-38" y="-28" width="76" height="56" rx="5" fill="var(--sym-fill)"/><line x1="-24" y1="24" x2="24" y2="-24" ${A}/><path d="M -28 -6 q 7 -12 14 0 q 7 12 14 0" fill="none" ${A}/><line x1="4" y1="18" x2="28" y2="18" ${A}/>`,
+  noodstop: () => `<circle cx="0" cy="0" r="30" fill="var(--sym-fill)"/><circle cx="0" cy="0" r="16" fill="currentColor" stroke="none"/>`,
+};
+
+/**
+ * Geeft de SVG-inhoud van een symbool (binnen het -50..50 vak).
+ * tegenRot draait het opschrift terug zodat het leesbaar blijft.
+ */
+function symbool(type, tegenRot = 0) {
+  const fn = SYMBOLEN[type] || SYMBOLEN.aansluitdoos;
+  return fn(tegenRot);
+}
+
+/** Losstaande SVG voor gebruik in knoppen en lijsten. */
+function symboolIcoon(type, grootte = 28) {
+  return `<svg viewBox="-56 -56 112 112" width="${grootte}" height="${grootte}" class="sym-icoon" ` +
+    `fill="none" stroke="currentColor" stroke-width="6" aria-hidden="true">${symbool(type)}</svg>`;
+}
+
+/* ---- store.js ---- */
+// Centrale toestand: project, selectie, undo/redo en opslag in de browser.
+
+
+const OPSLAG_SLEUTEL = 'elek.project';
+const MAX_HISTORIEK = 60;
+
+function laadUitOpslag() {
+  try {
+    const ruw = localStorage.getItem(OPSLAG_SLEUTEL);
+    if (!ruw) return null;
+    return migreer(JSON.parse(ruw));
+  } catch (e) {
+    console.warn('Project kon niet geladen worden:', e);
+    return null;
+  }
+}
+
+const store = {
+  project: laadUitOpslag() || nieuwProject('Mijn installatie'),
+
+  // Interface-toestand (niet opgeslagen in het project, geen undo)
+  ui: {
+    stap: 1,                 // 1 = plattegrond, 2 = componenten, 3 = kringen
+    weergave: 'plan',        // plan | bord
+    tool: 'select',
+    plaatsType: 'lichtpunt',
+    selectie: [],
+    actieveKring: null,
+    bezigPolygoon: null,
+    toonRaster: true,
+    toonLabels: true,
+    toonMaten: true,
+    kleurPerKring: false,
+    filterGroep: 'alle',
+  },
+
+  _luisteraars: new Set(),
+  _undo: [],
+  _redo: [],
+  _bezigMetOpslaan: null,
+
+  on(fn) {
+    this._luisteraars.add(fn);
+    return () => this._luisteraars.delete(fn);
+  },
+
+  emit(reden = 'wijziging') {
+    for (const fn of this._luisteraars) {
+      try { fn(reden); } catch (e) { console.error(e); }
+    }
+  },
+
+  /** Wijzigt het project met undo-ondersteuning. */
+  commit(label, fn) {
+    const snapshot = JSON.stringify(this.project);
+    const resultaat = fn(this.project);
+    if (resultaat === false) return false;      // wijziging afgebroken
+    this._undo.push({ label, data: snapshot });
+    if (this._undo.length > MAX_HISTORIEK) this._undo.shift();
+    this._redo.length = 0;
+    this.project.gewijzigd = new Date().toISOString();
+    this.bewaar();
+    this.emit('project');
+    return true;
+  },
+
+  /** Wijzigt alleen de interface-toestand. */
+  setUI(patch, reden = 'ui') {
+    Object.assign(this.ui, patch);
+    this.emit(reden);
+  },
+
+  undo() {
+    const vorige = this._undo.pop();
+    if (!vorige) return false;
+    this._redo.push({ label: vorige.label, data: JSON.stringify(this.project) });
+    this.project = migreer(JSON.parse(vorige.data));
+    this.ui.selectie = [];
+    this.bewaar();
+    this.emit('project');
+    return true;
+  },
+
+  redo() {
+    const volgende = this._redo.pop();
+    if (!volgende) return false;
+    this._undo.push({ label: volgende.label, data: JSON.stringify(this.project) });
+    this.project = migreer(JSON.parse(volgende.data));
+    this.ui.selectie = [];
+    this.bewaar();
+    this.emit('project');
+    return true;
+  },
+
+  kanUndo() { return this._undo.length > 0; },
+  kanRedo() { return this._redo.length > 0; },
+
+  bewaar() {
+    clearTimeout(this._bezigMetOpslaan);
+    this._bezigMetOpslaan = setTimeout(() => {
+      try {
+        localStorage.setItem(OPSLAG_SLEUTEL, JSON.stringify(this.project));
+      } catch (e) {
+        console.warn('Opslaan mislukt:', e);
+      }
+    }, 250);
+  },
+
+  vervangProject(p, label = 'project geladen') {
+    this._undo.push({ label, data: JSON.stringify(this.project) });
+    this._redo.length = 0;
+    this.project = migreer(p);
+    this.ui.selectie = [];
+    this.ui.bezigPolygoon = null;
+    this.bewaar();
+    this.emit('project');
+  },
+
+  // --- Selectie -----------------------------------------------------
+  selecteer(ids, toevoegen = false) {
+    const lijst = Array.isArray(ids) ? ids : ids ? [ids] : [];
+    if (toevoegen) {
+      const set = new Set(this.ui.selectie);
+      for (const id of lijst) set.has(id) ? set.delete(id) : set.add(id);
+      this.ui.selectie = [...set];
+    } else {
+      this.ui.selectie = lijst;
+    }
+    this.emit('selectie');
+  },
+
+  isGeselecteerd(id) { return this.ui.selectie.includes(id); },
+
+  // --- Zoekfuncties -------------------------------------------------
+  component(id) { return this.project.componenten.find((c) => c.id === id); },
+  ruimte(id) { return this.project.plan.ruimtes.find((r) => r.id === id); },
+  kring(id) { return this.project.kringen.find((k) => k.id === id); },
+  differentieel(id) { return this.project.differentiëlen.find((d) => d.id === id); },
+  geselecteerdeObjecten() {
+    return this.ui.selectie
+      .map((id) => this.component(id) || this.ruimte(id) || null)
+      .filter(Boolean);
+  },
+};
+
+/* ---- circuits.js ---- */
+// Kringen (zekeringen), automatische verdeling en controle volgens
+// de gangbare huishoudelijke regels (AREI-richtlijnen).
+
+
+/* ------------------------------------------------------------------ *
+ * Basisbewerkingen
+ * ------------------------------------------------------------------ */
+function volgendeKringKleur(project) {
+  const gebruikt = new Set(project.kringen.map((k) => k.kleur));
+  return KRINGKLEUREN.find((k) => !gebruikt.has(k)) || KRINGKLEUREN[project.kringen.length % KRINGKLEUREN.length];
+}
+
+function maakKring(project, opties = {}) {
+  const type = opties.type || 'stopcontact';
+  const sjabloon = KRINGSJABLOON[type] || KRINGSJABLOON.gemengd;
+  const nr = project.kringen.length + 1;
+  const kring = {
+    id: uid('kr'),
+    nummer: opties.nummer || nr,
+    naam: opties.naam || `${sjabloon.naam} ${nr}`,
+    type,
+    amp: opties.amp ?? sjabloon.amp,
+    mm2: opties.mm2 ?? sjabloon.mm2,
+    curve: opties.curve || 'C',
+    differentieelId: opties.differentieelId || (project.differentiëlen[0] && project.differentiëlen[0].id) || null,
+    kleur: opties.kleur || volgendeKringKleur(project),
+    opmerking: opties.opmerking || '',
+  };
+  project.kringen.push(kring);
+  return kring;
+}
+
+function verwijderKring(project, id) {
+  project.kringen = project.kringen.filter((k) => k.id !== id);
+  for (const c of project.componenten) if (c.kringId === id) c.kringId = null;
+  hernummer(project);
+}
+
+function hernummer(project) {
+  project.kringen.forEach((k, i) => { k.nummer = i + 1; });
+}
+
+function componentenVanKring(project, kringId) {
+  return project.componenten.filter((c) => c.kringId === kringId);
+}
+
+function puntenInKring(project, kringId) {
+  return componentenVanKring(project, kringId).reduce((s, c) => s + puntenVan(c), 0);
+}
+
+function vermogenVanKring(project, kringId) {
+  return componentenVanKring(project, kringId).reduce((s, c) => s + (c.watt ?? def(c.type).watt ?? 0), 0);
+}
+
+function maxPuntenVan(kring) {
+  const sjabloon = KRINGSJABLOON[kring.type] || KRINGSJABLOON.gemengd;
+  return kring.maxPunten ?? sjabloon.maxPunten;
+}
+
+/** Componenten die een kring nodig hebben (zwakstroom en verdeling niet). */
+function heeftKringNodig(comp) {
+  const d = def(comp.type);
+  return d.kringtype === 'verlichting' || d.kringtype === 'stopcontact' ||
+    d.kringtype === 'vast' || d.kringtype === 'bediening';
+}
+
+/* ------------------------------------------------------------------ *
+ * Automatische verdeling
+ * ------------------------------------------------------------------ */
+function vochtig(project, comp) {
+  const d = def(comp.type);
+  if (d.nat) return true;
+  const r = comp.ruimteId && project.plan.ruimtes.find((x) => x.id === comp.ruimteId);
+  return !!(r && ruimteDef(r.type).vochtig);
+}
+
+function zorgVoorDifferentieel(project, gevoeligheid) {
+  let dif = project.differentiëlen.find((d) => d.gevoeligheid === gevoeligheid);
+  if (!dif) {
+    dif = {
+      id: uid('dif'),
+      naam: gevoeligheid === 30 ? 'Vochtige ruimtes' : 'Algemeen',
+      gevoeligheid,
+      amp: 40,
+      type: 'A',
+    };
+    project.differentiëlen.push(dif);
+  }
+  return dif;
+}
+
+function ruimteNaam(project, comp) {
+  const r = comp.ruimteId && project.plan.ruimtes.find((x) => x.id === comp.ruimteId);
+  return r ? (r.naam || ruimteDef(r.type).naam) : 'overige';
+}
+
+/**
+ * Verdeelt alle componenten automatisch over kringen.
+ * Bestaande kringen worden vervangen; handmatige aanpassingen gaan verloren.
+ */
+function autoVerdeel(project) {
+  project.kringen = [];
+  for (const c of project.componenten) c.kringId = null;
+
+  const alg = zorgVoorDifferentieel(project, 300);
+  const dif30 = zorgVoorDifferentieel(project, 30);
+
+  const nieuweKring = (type, naam, extra = {}) => {
+    const k = maakKring(project, { type, naam, ...extra });
+    return k;
+  };
+
+  // 1. Vaste toestellen met een eigen kring
+  for (const c of project.componenten) {
+    const d = def(c.type);
+    if (d.kringtype !== 'vast' || !d.eigen) continue;
+    const amp = c.amp ?? d.amp ?? 16;
+    const k = nieuweKring('vast', `${d.naam}${c.label ? ' ' + c.label : ''}`, {
+      amp,
+      mm2: Math.max(c.mm2 ?? d.mm2 ?? 2.5, minSectieVoor(amp)),
+      differentieelId: (vochtig(project, c) ? dif30 : alg).id,
+    });
+    c.kringId = k.id;
+  }
+
+  // 2. Verlichting en stopcontacten, gegroepeerd per ruimte
+  const groepeer = (kringtype) => {
+    const perRuimte = new Map();
+    for (const c of project.componenten) {
+      const d = def(c.type);
+      if (d.kringtype !== kringtype || c.kringId) continue;
+      const sleutel = ruimteNaam(project, c);
+      if (!perRuimte.has(sleutel)) perRuimte.set(sleutel, []);
+      perRuimte.get(sleutel).push(c);
+    }
+    return perRuimte;
+  };
+
+  for (const kringtype of ['verlichting', 'stopcontact']) {
+    const sjabloon = KRINGSJABLOON[kringtype];
+    for (const [naam, lijst] of groepeer(kringtype)) {
+      const nat = lijst.some((c) => vochtig(project, c));
+      let huidige = null;
+      let punten = 0;
+      let deel = 1;
+      for (const c of lijst) {
+        const p = puntenVan(c) || 1;
+        if (!huidige || punten + p > sjabloon.maxPunten) {
+          const achtervoegsel = deel > 1 ? ` ${deel}` : '';
+          huidige = nieuweKring(kringtype, `${sjabloon.naam} ${naam}${achtervoegsel}`, {
+            differentieelId: (nat ? dif30 : alg).id,
+          });
+          punten = 0;
+          deel += 1;
+        }
+        c.kringId = huidige.id;
+        punten += p;
+      }
+    }
+  }
+
+  // 3. Overige vaste toestellen (zonder eigen kring) bij de stopcontacten
+  //    van hun ruimte, anders een eigen kring.
+  for (const c of project.componenten) {
+    const d = def(c.type);
+    if (d.kringtype !== 'vast' || c.kringId) continue;
+    const naam = ruimteNaam(project, c);
+    const bestaande = project.kringen.find(
+      (k) => k.type === 'stopcontact' && k.naam.endsWith(naam) && puntenInKring(project, k.id) < maxPuntenVan(k)
+    );
+    if (bestaande) {
+      c.kringId = bestaande.id;
+    } else {
+      const amp = c.amp ?? d.amp ?? 16;
+      const k = nieuweKring('vast', `${d.naam} ${naam}`, {
+        amp,
+        mm2: Math.max(c.mm2 ?? d.mm2 ?? 2.5, minSectieVoor(amp)),
+        differentieelId: (vochtig(project, c) ? dif30 : alg).id,
+      });
+      c.kringId = k.id;
+    }
+  }
+
+  // 4. Schakelaars volgen de verlichting die ze bedienen, anders de
+  //    verlichtingskring van hun ruimte.
+  for (const c of project.componenten) {
+    const d = def(c.type);
+    if (d.kringtype !== 'bediening') continue;
+    const verbonden = project.verbindingen
+      .filter((v) => v.van === c.id || v.naar === c.id)
+      .map((v) => (v.van === c.id ? v.naar : v.van))
+      .map((id) => project.componenten.find((x) => x.id === id))
+      .filter(Boolean)
+      .find((x) => x.kringId);
+    if (verbonden) { c.kringId = verbonden.kringId; continue; }
+    const naam = ruimteNaam(project, c);
+    const kring = project.kringen.find((k) => k.type === 'verlichting' && k.naam.includes(naam)) ||
+      project.kringen.find((k) => k.type === 'verlichting');
+    if (kring) c.kringId = kring.id;
+  }
+
+  hernummer(project);
+  return project.kringen.length;
+}
+
+/* ------------------------------------------------------------------ *
+ * Controle
+ * ------------------------------------------------------------------ */
+function controleer(project) {
+  const meldingen = [];
+  const voegToe = (niveau, tekst, ids = [], bron = '') =>
+    meldingen.push({ niveau, tekst, ids, bron });
+
+  // Componenten zonder kring
+  const zonder = project.componenten.filter((c) => heeftKringNodig(c) && !c.kringId);
+  if (zonder.length) {
+    voegToe('waarschuwing',
+      `${zonder.length} component${zonder.length > 1 ? 'en hebben' : ' heeft'} nog geen kring toegewezen.`,
+      zonder.map((c) => c.id), 'kring');
+  }
+
+  for (const k of project.kringen) {
+    const comps = componentenVanKring(project, k.id);
+    const punten = comps.reduce((s, c) => s + puntenVan(c), 0);
+    const max = maxPuntenVan(k);
+
+    if (max && punten > max) {
+      voegToe('waarschuwing',
+        `Kring ${k.nummer} “${k.naam}”: ${punten} punten, maximaal ${max} toegelaten.`,
+        comps.map((c) => c.id), 'punten');
+    }
+
+    const maxA = maxAmpVoor(k.mm2);
+    if (k.amp > maxA) {
+      voegToe('fout',
+        `Kring ${k.nummer} “${k.naam}”: automaat ${k.amp} A is te zwaar voor ${k.mm2} mm² (max ${maxA} A).`,
+        [], 'kabel');
+    }
+
+    if (!k.differentieelId || !project.differentiëlen.find((d) => d.id === k.differentieelId)) {
+      voegToe('fout', `Kring ${k.nummer} “${k.naam}” hangt niet achter een differentieel.`, [], 'differentieel');
+    }
+
+    if (!comps.length) {
+      voegToe('info', `Kring ${k.nummer} “${k.naam}” is leeg.`, [], 'leeg');
+    }
+
+    // Toestellen die een eigen kring horen te hebben
+    const eigenToestellen = comps.filter((c) => def(c.type).eigen);
+    if (eigenToestellen.length && comps.length > eigenToestellen.length) {
+      voegToe('waarschuwing',
+        `Kring ${k.nummer} “${k.naam}”: ${eigenToestellen.map((c) => def(c.type).naam).join(', ')} hoort op een eigen kring.`,
+        eigenToestellen.map((c) => c.id), 'eigenkring');
+    } else if (eigenToestellen.length > 1) {
+      voegToe('waarschuwing',
+        `Kring ${k.nummer} “${k.naam}” bevat meerdere toestellen die elk een eigen kring nodig hebben.`,
+        eigenToestellen.map((c) => c.id), 'eigenkring');
+    }
+
+    // Belasting tegenover de automaat
+    const watt = comps.reduce((s, c) => s + (c.watt ?? def(c.type).watt ?? 0), 0);
+    const maxWatt = k.amp * (project.net.spanning || 230);
+    if (watt > maxWatt) {
+      voegToe('waarschuwing',
+        `Kring ${k.nummer} “${k.naam}”: geschat vermogen ${Math.round(watt)} W boven ${Math.round(maxWatt)} W van een ${k.amp} A automaat.`,
+        [], 'belasting');
+    }
+
+    // Vochtige ruimtes op 30 mA
+    const dif = project.differentiëlen.find((d) => d.id === k.differentieelId);
+    const natteComps = comps.filter((c) => vochtig(project, c));
+    if (natteComps.length && (!dif || dif.gevoeligheid > 30)) {
+      voegToe('waarschuwing',
+        `Kring ${k.nummer} “${k.naam}” voedt een vochtige ruimte of nat toestel en hoort achter een differentieel van 30 mA.`,
+        natteComps.map((c) => c.id), 'rcd30');
+    }
+  }
+
+  // Differentiëlen
+  for (const d of project.differentiëlen) {
+    const kringen = project.kringen.filter((k) => k.differentieelId === d.id);
+    const somAmp = kringen.reduce((s, k) => s + k.amp, 0);
+    if (kringen.length && somAmp > d.amp * 2) {
+      voegToe('info',
+        `Differentieel “${d.naam}” (${d.amp} A) voedt kringen met samen ${somAmp} A; controleer de gelijktijdigheid.`,
+        [], 'diffbelasting');
+    }
+  }
+
+  if (project.componenten.length && !project.componenten.some((c) => c.type === 'verdeelbord')) {
+    voegToe('info', 'Er staat nog geen verdeelbord op het situatieschema.', [], 'bord');
+  }
+
+  const orde = { fout: 0, waarschuwing: 1, info: 2 };
+  meldingen.sort((a, b) => orde[a.niveau] - orde[b.niveau]);
+  return meldingen;
+}
+
+function totaalVermogen(project) {
+  return project.componenten.reduce((s, c) => s + (c.watt ?? def(c.type).watt ?? 0), 0);
+}
+
+/* ---- canvas.js ---- */
+// Tekenlaag van het situatieschema: ruimtes, muren, componenten en
+// alle muis-, pen- en touchbediening (pan, pinch-zoom, slepen, tekenen).
+
+
+
+
+
+const SYMBOOL_M = 0.36;     // tekengrootte van een symbool in meter
+const WAND_SNAP = 0.5;      // afstand waarbinnen naar een muur wordt geklikt
+
+class PlanCanvas {
+  constructor(svg) {
+    this.svg = svg;
+    this.view = { cx: 5, cy: 4, zoom: 60 };   // midden in meter, zoom in px/meter
+    this.actie = null;
+    this.pointers = new Map();
+    this.pinch = null;
+    this._rafId = 0;
+    this._bind();
+    new ResizeObserver(() => this.render()).observe(svg.parentElement);
+  }
+
+  /* ---------------------------------------------------------------- *
+   * Coördinaten
+   * ---------------------------------------------------------------- */
+  get maat() { return { w: this.svg.clientWidth || 800, h: this.svg.clientHeight || 600 }; }
+
+  get viewBox() {
+    const { w, h } = this.maat;
+    const vw = w / this.view.zoom;
+    const vh = h / this.view.zoom;
+    return { x: this.view.cx - vw / 2, y: this.view.cy - vh / 2, w: vw, h: vh };
+  }
+
+  wereldPunt(e) {
+    const pt = this.svg.createSVGPoint();
+    pt.x = e.clientX; pt.y = e.clientY;
+    const m = this.svg.getScreenCTM();
+    if (!m) return { x: 0, y: 0 };
+    const p = pt.matrixTransform(m.inverse());
+    return { x: p.x, y: p.y };
+  }
+
+  zoomNaar(factor, ankerScherm) {
+    const voor = ankerScherm ? this.wereldPunt(ankerScherm) : { x: this.view.cx, y: this.view.cy };
+    this.view.zoom = Math.max(6, Math.min(600, this.view.zoom * factor));
+    this.render();
+    if (ankerScherm) {
+      const na = this.wereldPunt(ankerScherm);
+      this.view.cx += voor.x - na.x;
+      this.view.cy += voor.y - na.y;
+      this.render();
+    }
+  }
+
+  zoomNaarAlles() {
+    const punten = [];
+    for (const r of store.project.plan.ruimtes) punten.push(...r.punten);
+    for (const m of store.project.plan.muren) punten.push(m.a, m.b);
+    for (const c of store.project.componenten) punten.push({ x: c.x, y: c.y });
+    const box = omhullende(punten);
+    const { w, h } = this.maat;
+    if (!box || (box.w < 0.01 && box.h < 0.01)) {
+      this.view = { cx: 5, cy: 4, zoom: 60 };
+    } else {
+      const marge = 1.2;
+      this.view.cx = (box.x1 + box.x2) / 2;
+      this.view.cy = (box.y1 + box.y2) / 2;
+      this.view.zoom = Math.min(w / (box.w + marge), h / (box.h + marge));
+      this.view.zoom = Math.max(8, Math.min(200, this.view.zoom));
+    }
+    this.render();
+  }
+
+  /* ---------------------------------------------------------------- *
+   * Tekenen
+   * ---------------------------------------------------------------- */
+  plan() {
+    if (this._rafId) return;
+    this._rafId = requestAnimationFrame(() => { this._rafId = 0; this.render(); });
+  }
+
+  render() {
+    const vb = this.viewBox;
+    this.svg.setAttribute('viewBox', `${vb.x} ${vb.y} ${vb.w} ${vb.h}`);
+    this.svg.innerHTML = this.bouw({ vb });
+  }
+
+  /** Bouwt de volledige SVG-inhoud. */
+  bouw({ vb, voorExport = false } = {}) {
+    const p = store.project;
+    const ui = store.ui;
+    const z = this.view.zoom;
+    const lijn = voorExport ? 0.018 : Math.max(0.012, 1.3 / z);
+    const symM = voorExport ? SYMBOOL_M : Math.max(SYMBOOL_M, 13 / z);
+
+    let s = this.defs(lijn, voorExport ? null : vb);
+    if (!voorExport && ui.toonRaster) {
+      s += `<rect x="${vb.x}" y="${vb.y}" width="${vb.w}" height="${vb.h}" fill="url(#raster)"/>`;
+    }
+
+    // Ruimtes
+    s += '<g class="laag-ruimtes">';
+    for (const r of p.plan.ruimtes) s += this.ruimteSVG(r, lijn, voorExport);
+    s += '</g>';
+
+    // Losse muren
+    s += '<g class="laag-muren">';
+    for (const m of p.plan.muren) {
+      const gesel = !voorExport && store.isGeselecteerd(m.id);
+      s += `<line data-kind="muur" data-id="${m.id}" x1="${m.a.x}" y1="${m.a.y}" x2="${m.b.x}" y2="${m.b.y}" ` +
+        `stroke="${gesel ? 'var(--accent)' : 'var(--muur)'}" stroke-width="${(m.dikte || 0.1)}" stroke-linecap="square"/>`;
+    }
+    s += '</g>';
+
+    // Verbindingen schakelaar → verbruiker
+    if (ui.stap >= 2 || voorExport) {
+      s += '<g class="laag-verbindingen">';
+      for (const v of p.verbindingen) {
+        const a = p.componenten.find((c) => c.id === v.van);
+        const b = p.componenten.find((c) => c.id === v.naar);
+        if (!a || !b) continue;
+        const mx = (a.x + b.x) / 2;
+        const my = Math.min(a.y, b.y) - afstand(a, b) * 0.18;
+        s += `<path d="M ${a.x} ${a.y} Q ${mx} ${my} ${b.x} ${b.y}" fill="none" stroke="var(--verbinding)" ` +
+          `stroke-width="${lijn}" stroke-dasharray="${lijn * 5} ${lijn * 4}"/>`;
+      }
+      s += '</g>';
+    }
+
+    // Componenten
+    s += '<g class="laag-componenten">';
+    for (const c of p.componenten) s += this.componentSVG(c, symM, lijn, voorExport);
+    s += '</g>';
+
+    if (!voorExport) s += this.overlay(lijn, symM);
+    return s;
+  }
+
+  defs(lijn, vb) {
+    const fijn = lijn * 0.6;
+    return `<defs>
+      <pattern id="raster" width="1" height="1" patternUnits="userSpaceOnUse">
+        <rect width="1" height="1" fill="none"/>
+        <path d="M 1 0 L 0 0 0 1" fill="none" stroke="var(--raster-groot)" stroke-width="${fijn}"/>
+        <path d="M 0.25 0 L 0.25 1 M 0.5 0 L 0.5 1 M 0.75 0 L 0.75 1 M 0 0.25 L 1 0.25 M 0 0.5 L 1 0.5 M 0 0.75 L 1 0.75"
+              fill="none" stroke="var(--raster-fijn)" stroke-width="${fijn * 0.6}"/>
+      </pattern>
+    </defs>`;
+  }
+
+  ruimteSVG(r, lijn, voorExport) {
+    const gesel = !voorExport && store.isGeselecteerd(r.id);
+    const d = ruimteDef(r.type);
+    const punten = r.punten.map((p) => `${p.x},${p.y}`).join(' ');
+    const mid = zwaartepunt(r.punten);
+    const box = omhullende(r.punten);
+    const opp = oppervlakte(r.punten);
+    // Naam iets onder het midden: het plafondlichtpunt staat meestal in het midden.
+    const naamY = mid.y + Math.min(box.h * 0.22, 0.9);
+    let s = `<polygon data-kind="ruimte" data-id="${r.id}" points="${punten}" ` +
+      `fill="${r.kleur || d.kleur}" fill-opacity="0.85" stroke="${gesel ? 'var(--accent)' : 'var(--muur)'}" ` +
+      `stroke-width="${gesel ? lijn * 3 : (r.muurdikte || 0.09)}" stroke-linejoin="miter"/>`;
+    if (store.ui.toonLabels || voorExport) {
+      const naam = r.naam || d.naam;
+      const h = Math.max(0.22, 13 / this.view.zoom);
+      s += `<text x="${mid.x}" y="${naamY}" text-anchor="middle" font-size="${h}" fill="var(--tekst-plan)" ` +
+        `font-family="system-ui, sans-serif" font-weight="600" style="pointer-events:none">${escape(naam)}</text>`;
+      if (store.ui.toonMaten || voorExport) {
+        s += `<text x="${mid.x}" y="${naamY + h * 1.25}" text-anchor="middle" font-size="${h * 0.8}" ` +
+          `fill="var(--tekst-plan-zacht)" font-family="system-ui, sans-serif" style="pointer-events:none">${opp.toFixed(1)} m²</text>`;
+      }
+    }
+    return s;
+  }
+
+  componentSVG(c, symM, lijn, voorExport) {
+    const d = def(c.type);
+    const kring = c.kringId && store.project.kringen.find((k) => k.id === c.kringId);
+    const gesel = !voorExport && store.isGeselecteerd(c.id);
+    const kleurPerKring = store.ui.kleurPerKring || store.ui.stap === 3;
+    let kleur = 'var(--symbool)';
+    if (kleurPerKring) kleur = kring ? kring.kleur : 'var(--geen-kring)';
+    const schaal = symM / 100;
+    const hit = Math.max(symM * 0.85, 14 / this.view.zoom);
+
+    let s = `<g data-kind="component" data-id="${c.id}" class="comp${gesel ? ' geselecteerd' : ''}" ` +
+      `transform="translate(${c.x} ${c.y}) rotate(${c.rot || 0})">`;
+    if (gesel) {
+      s += `<circle cx="0" cy="0" r="${hit}" fill="var(--accent)" fill-opacity="0.18" stroke="var(--accent)" stroke-width="${lijn}"/>`;
+    }
+    s += `<g transform="scale(${schaal})" fill="none" stroke="${kleur}" stroke-width="${(lijn / schaal) * 1.15}">${symbool(c.type, -(c.rot || 0))}</g>`;
+    if (!voorExport) s += `<circle cx="0" cy="0" r="${hit}" fill="transparent" class="hit"/>`;
+    s += '</g>';
+
+    // Label / kringnummer los van de rotatie
+    const toonKring = (store.ui.stap === 3 || kleurPerKring) && kring;
+    if ((store.ui.toonLabels || voorExport) && (c.label || toonKring)) {
+      const h = Math.max(0.17, 11 / this.view.zoom);
+      const tekst = toonKring ? `${kring.nummer}${c.label ? ' · ' + c.label : ''}` : c.label;
+      s += `<text x="${c.x}" y="${c.y + symM * 0.95 + h}" text-anchor="middle" font-size="${h}" ` +
+        `fill="${toonKring ? kring.kleur : 'var(--tekst-plan-zacht)'}" font-weight="600" ` +
+        `font-family="system-ui, sans-serif" style="pointer-events:none">${escape(String(tekst))}</text>`;
+    }
+    return s;
+  }
+
+  /** Hulplijnen, greeppunten en voorbeelden tijdens het tekenen. */
+  overlay(lijn, symM) {
+    const ui = store.ui;
+    let s = '<g class="laag-overlay">';
+
+    // Greeppunten van een geselecteerde ruimte
+    const sel = ui.selectie.length === 1 ? store.ruimte(ui.selectie[0]) : null;
+    if (sel && ui.tool === 'select') {
+      const r = Math.max(0.08, 7 / this.view.zoom);
+      sel.punten.forEach((p, i) => {
+        s += `<circle data-kind="hoek" data-id="${sel.id}" data-index="${i}" cx="${p.x}" cy="${p.y}" r="${r}" ` +
+          `fill="var(--vlak)" stroke="var(--accent)" stroke-width="${lijn}"/>`;
+      });
+      // Zijdematen
+      const h = Math.max(0.16, 10 / this.view.zoom);
+      for (const [a, b] of segmenten(sel.punten)) {
+        const len = afstand(a, b);
+        if (len < 0.3) continue;
+        const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+        s += `<text x="${mx}" y="${my - h * 0.4}" text-anchor="middle" font-size="${h}" fill="var(--accent)" ` +
+          `font-family="system-ui, sans-serif" style="pointer-events:none">${len.toFixed(2)} m</text>`;
+      }
+    }
+
+    // Voorbeeld tijdens tekenen
+    const a = this.actie;
+    if (a && a.type === 'rect' && a.huidig) {
+      const pts = rechthoek(a.start, a.huidig).map((p) => `${p.x},${p.y}`).join(' ');
+      s += `<polygon points="${pts}" fill="var(--accent)" fill-opacity="0.15" stroke="var(--accent)" ` +
+        `stroke-width="${lijn * 2}" stroke-dasharray="${lijn * 4} ${lijn * 3}"/>`;
+      const b = omhullende(rechthoek(a.start, a.huidig));
+      const h = Math.max(0.18, 12 / this.view.zoom);
+      s += `<text x="${(b.x1 + b.x2) / 2}" y="${(b.y1 + b.y2) / 2}" text-anchor="middle" font-size="${h}" ` +
+        `fill="var(--accent)" font-weight="600" font-family="system-ui, sans-serif">${b.w.toFixed(2)} × ${b.h.toFixed(2)} m</text>`;
+    }
+    if (a && a.type === 'muur' && a.huidig) {
+      s += `<line x1="${a.start.x}" y1="${a.start.y}" x2="${a.huidig.x}" y2="${a.huidig.y}" ` +
+        `stroke="var(--accent)" stroke-width="${a.dikte || 0.1}" stroke-linecap="square" opacity="0.7"/>`;
+    }
+    if (a && a.type === 'rubber' && a.huidig) {
+      const b = omhullende([a.start, a.huidig]);
+      s += `<rect x="${b.x1}" y="${b.y1}" width="${b.w}" height="${b.h}" fill="var(--accent)" fill-opacity="0.1" ` +
+        `stroke="var(--accent)" stroke-width="${lijn}" stroke-dasharray="${lijn * 3} ${lijn * 3}"/>`;
+    }
+
+    // Polygoon in opbouw
+    if (ui.bezigPolygoon && ui.bezigPolygoon.length) {
+      const pts = ui.bezigPolygoon.map((p) => `${p.x},${p.y}`).join(' ');
+      const laatste = ui.bezigPolygoon[ui.bezigPolygoon.length - 1];
+      s += `<polyline points="${pts}" fill="none" stroke="var(--accent)" stroke-width="${lijn * 2}"/>`;
+      if (this.muisWereld) {
+        s += `<line x1="${laatste.x}" y1="${laatste.y}" x2="${this.muisWereld.x}" y2="${this.muisWereld.y}" ` +
+          `stroke="var(--accent)" stroke-width="${lijn * 2}" stroke-dasharray="${lijn * 4} ${lijn * 3}"/>`;
+      }
+      for (const p of ui.bezigPolygoon) {
+        s += `<circle cx="${p.x}" cy="${p.y}" r="${Math.max(0.06, 5 / this.view.zoom)}" fill="var(--accent)"/>`;
+      }
+    }
+
+    // Plaatsingsvoorbeeld
+    if (ui.tool === 'plaats' && this.muisWereld) {
+      const pos = this.plaatsPositie(this.muisWereld, ui.plaatsType);
+      const schaal = symM / 100;
+      s += `<g transform="translate(${pos.x} ${pos.y}) rotate(${pos.rot})" opacity="0.55">` +
+        `<g transform="scale(${schaal})" fill="none" stroke="var(--accent)" stroke-width="${(lijn / schaal) * 1.2}">${symbool(ui.plaatsType)}</g></g>`;
+    }
+
+    s += '</g>';
+    return s;
+  }
+
+  /* ---------------------------------------------------------------- *
+   * Plaatsing en muur-snap
+   * ---------------------------------------------------------------- */
+  alleSegmenten() {
+    const lijst = [];
+    for (const r of store.project.plan.ruimtes) {
+      const mid = zwaartepunt(r.punten);
+      for (const [a, b] of segmenten(r.punten)) lijst.push({ a, b, binnen: mid });
+    }
+    for (const m of store.project.plan.muren) lijst.push({ a: m.a, b: m.b, binnen: null });
+    return lijst;
+  }
+
+  /** Bepaalt positie en hoek van een te plaatsen component. */
+  plaatsPositie(punt, type) {
+    const d = def(type);
+    const raster = store.project.plan.raster;
+    if (!d.wand) {
+      const p = snapPunt(punt, raster);
+      return { x: p.x, y: p.y, rot: 0 };
+    }
+    let beste = null;
+    for (const seg of this.alleSegmenten()) {
+      const pr = projecteerOpSegment(punt, seg.a, seg.b);
+      if (pr.afstand < WAND_SNAP && (!beste || pr.afstand < beste.pr.afstand)) beste = { pr, seg };
+    }
+    if (!beste) {
+      const p = snapPunt(punt, raster);
+      return { x: p.x, y: p.y, rot: 0 };
+    }
+    const wp = beste.pr.punt;
+    // Normaal loodrecht op de muur, gericht naar de binnenzijde van de ruimte.
+    const ux = beste.seg.b.x - beste.seg.a.x;
+    const uy = beste.seg.b.y - beste.seg.a.y;
+    const lengte = Math.hypot(ux, uy) || 1;
+    let nx = -uy / lengte, ny = ux / lengte;
+    if (beste.seg.binnen) {
+      const naarBinnen = (beste.seg.binnen.x - wp.x) * nx + (beste.seg.binnen.y - wp.y) * ny;
+      if (naarBinnen < 0) { nx = -nx; ny = -ny; }
+    } else if (ny > 0) {
+      nx = -nx; ny = -ny;   // losse muur: standaard naar boven
+    }
+    const offset = SYMBOOL_M * 0.55;
+    const rot = (Math.atan2(nx, -ny) * 180) / Math.PI;
+    return { x: +(wp.x + nx * offset).toFixed(3), y: +(wp.y + ny * offset).toFixed(3), rot: +rot.toFixed(1) };
+  }
+
+  ruimteOp(punt) {
+    const ruimtes = store.project.plan.ruimtes;
+    for (let i = ruimtes.length - 1; i >= 0; i--) {
+      if (puntInPolygoon(punt, ruimtes[i].punten)) return ruimtes[i];
+    }
+    return null;
+  }
+
+  plaatsComponent(punt, type) {
+    const pos = this.plaatsPositie(punt, type);
+    const d = def(type);
+    const ruimte = this.ruimteOp({ x: pos.x, y: pos.y }) || this.ruimteOp(punt);
+    let nieuwId = null;
+    store.commit('component geplaatst', (p) => {
+      const c = {
+        id: uid('cmp'),
+        type,
+        x: pos.x,
+        y: pos.y,
+        rot: pos.rot,
+        label: '',
+        ruimteId: ruimte ? ruimte.id : null,
+        kringId: store.ui.stap === 3 ? store.ui.actieveKring : null,
+        hoogte: d.hoogte ?? null,
+        watt: d.watt ?? null,
+        opmerking: '',
+      };
+      p.componenten.push(c);
+      nieuwId = c.id;
+    });
+    return nieuwId;
+  }
+
+  /* ---------------------------------------------------------------- *
+   * Bediening
+   * ---------------------------------------------------------------- */
+  _bind() {
+    const svg = this.svg;
+    svg.addEventListener('pointerdown', (e) => this.onDown(e));
+    svg.addEventListener('pointermove', (e) => this.onMove(e));
+    svg.addEventListener('pointerup', (e) => this.onUp(e));
+    svg.addEventListener('pointercancel', (e) => this.onUp(e));
+    svg.addEventListener('pointerleave', () => { this.muisWereld = null; this.plan(); });
+    svg.addEventListener('dblclick', (e) => this.onDubbel(e));
+    svg.addEventListener('contextmenu', (e) => e.preventDefault());
+    svg.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const factor = Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.0015));
+      this.zoomNaar(factor, e);
+    }, { passive: false });
+  }
+
+  onDown(e) {
+    this.svg.setPointerCapture(e.pointerId);
+    this.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+    if (this.pointers.size === 2) {
+      const [a, b] = [...this.pointers.values()];
+      this.pinch = {
+        afstand: Math.hypot(a.x - b.x, a.y - b.y),
+        midden: { clientX: (a.x + b.x) / 2, clientY: (a.y + b.y) / 2 },
+      };
+      this.actie = null;
+      return;
+    }
+    if (this.pointers.size > 2) return;
+
+    const ui = store.ui;
+    const w = this.wereldPunt(e);
+    const doel = e.target.closest('[data-kind]');
+    const kind = doel && doel.dataset.kind;
+    const id = doel && doel.dataset.id;
+    const middenknop = e.button === 1 || e.button === 2 || e.altKey;
+
+    if (middenknop) {
+      this.actie = { type: 'pan', start: { x: e.clientX, y: e.clientY }, view: { ...this.view } };
+      return;
+    }
+
+    switch (ui.tool) {
+      case 'plaats': {
+        const nieuwe = this.plaatsComponent(w, ui.plaatsType);
+        if (nieuwe) store.selecteer(nieuwe);
+        return;
+      }
+      case 'rechthoek':
+        this.actie = { type: 'rect', start: snapPunt(w, store.project.plan.raster), huidig: null };
+        return;
+      case 'polygoon': {
+        const p = snapPunt(w, store.project.plan.raster);
+        const bezig = ui.bezigPolygoon ? [...ui.bezigPolygoon] : [];
+        if (bezig.length > 2 && afstand(p, bezig[0]) < 0.35) { this.sluitPolygoon(); return; }
+        bezig.push(p);
+        store.setUI({ bezigPolygoon: bezig });
+        return;
+      }
+      case 'muur':
+        this.actie = { type: 'muur', start: snapPunt(w, store.project.plan.raster), huidig: null, dikte: 0.1 };
+        return;
+      case 'verbind': {
+        if (kind === 'component') this.verbindKlik(id);
+        return;
+      }
+      case 'kringverf': {
+        if (kind === 'component' && ui.actieveKring) {
+          this.actie = { type: 'verf', gedaan: new Set() };
+          this.verfComponent(id);
+        }
+        return;
+      }
+      case 'gum': {
+        if (id) this.verwijderObject(id);
+        return;
+      }
+      default: break;
+    }
+
+    // Selectiegereedschap
+    if (kind === 'hoek') {
+      this.actie = { type: 'hoek', ruimteId: id, index: Number(doel.dataset.index) };
+      return;
+    }
+    if (kind === 'component' || kind === 'ruimte' || kind === 'muur') {
+      if (!store.isGeselecteerd(id)) store.selecteer(id, e.shiftKey);
+      else if (e.shiftKey) { store.selecteer(id, true); return; }
+      this.actie = {
+        type: 'sleep',
+        start: w,
+        laatste: w,
+        verplaatst: false,
+        objecten: this.sleepbareObjecten(),
+      };
+      return;
+    }
+
+    // Lege ruimte: pannen (touch) of rubberband (muis)
+    if (e.pointerType === 'touch') {
+      this.actie = { type: 'pan', start: { x: e.clientX, y: e.clientY }, view: { ...this.view } };
+    } else {
+      if (!e.shiftKey) store.selecteer([]);
+      this.actie = { type: 'rubber', start: w, huidig: null };
+    }
+  }
+
+  sleepbareObjecten() {
+    const p = store.project;
+    const sel = new Set(store.ui.selectie);
+    const comps = p.componenten.filter((c) => sel.has(c.id)).map((c) => ({ soort: 'comp', obj: c, x: c.x, y: c.y }));
+    const ruimtes = p.plan.ruimtes.filter((r) => sel.has(r.id));
+    const muren = p.plan.muren.filter((m) => sel.has(m.id));
+    const meeComps = [];
+    for (const r of ruimtes) {
+      for (const c of p.componenten) {
+        if (c.ruimteId === r.id && !sel.has(c.id)) meeComps.push({ soort: 'comp', obj: c, x: c.x, y: c.y });
+      }
+    }
+    return {
+      comps: [...comps, ...meeComps],
+      ruimtes: ruimtes.map((r) => ({ obj: r, punten: r.punten.map((p2) => ({ ...p2 })) })),
+      muren: muren.map((m) => ({ obj: m, a: { ...m.a }, b: { ...m.b } })),
+    };
+  }
+
+  onMove(e) {
+    if (this.pointers.has(e.pointerId)) this.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    this.muisWereld = this.wereldPunt(e);
+
+    if (this.pointers.size === 2 && this.pinch) {
+      const [a, b] = [...this.pointers.values()];
+      const nieuweAfstand = Math.hypot(a.x - b.x, a.y - b.y);
+      const midden = { clientX: (a.x + b.x) / 2, clientY: (a.y + b.y) / 2 };
+      const factor = nieuweAfstand / (this.pinch.afstand || nieuweAfstand);
+      // pan volgens de verplaatsing van het middelpunt
+      const dx = (midden.clientX - this.pinch.midden.clientX) / this.view.zoom;
+      const dy = (midden.clientY - this.pinch.midden.clientY) / this.view.zoom;
+      this.view.cx -= dx; this.view.cy -= dy;
+      this.pinch = { afstand: nieuweAfstand, midden };
+      this.zoomNaar(factor, midden);
+      return;
+    }
+
+    const a = this.actie;
+    if (!a) { if (store.ui.tool === 'plaats' || store.ui.bezigPolygoon) this.plan(); return; }
+    const w = this.muisWereld;
+    const raster = store.project.plan.raster;
+
+    switch (a.type) {
+      case 'pan': {
+        this.view.cx = a.view.cx - (e.clientX - a.start.x) / this.view.zoom;
+        this.view.cy = a.view.cy - (e.clientY - a.start.y) / this.view.zoom;
+        this.plan();
+        break;
+      }
+      case 'rect':
+        a.huidig = snapPunt(e.shiftKey ? orthogonaal(a.start, w) : w, raster);
+        this.plan();
+        break;
+      case 'muur':
+        a.huidig = snapPunt(e.shiftKey ? orthogonaal(a.start, w) : w, raster);
+        this.plan();
+        break;
+      case 'rubber':
+        a.huidig = w;
+        this.plan();
+        break;
+      case 'sleep': {
+        const dx = w.x - a.start.x, dy = w.y - a.start.y;
+        if (Math.abs(dx) > 0.02 || Math.abs(dy) > 0.02) a.verplaatst = true;
+        for (const c of a.objecten.comps) {
+          const doel = { x: c.x + dx, y: c.y + dy };
+          if (def(c.obj.type).wand) {
+            const pos = this.plaatsPositie(doel, c.obj.type);
+            c.obj.x = pos.x; c.obj.y = pos.y; c.obj.rot = pos.rot;
+          } else {
+            const p2 = snapPunt(doel, raster);
+            c.obj.x = p2.x; c.obj.y = p2.y;
+          }
+        }
+        for (const r of a.objecten.ruimtes) {
+          r.obj.punten = r.punten.map((p2) => snapPunt({ x: p2.x + dx, y: p2.y + dy }, raster));
+        }
+        for (const m of a.objecten.muren) {
+          m.obj.a = snapPunt({ x: m.a.x + dx, y: m.a.y + dy }, raster);
+          m.obj.b = snapPunt({ x: m.b.x + dx, y: m.b.y + dy }, raster);
+        }
+        this.plan();
+        break;
+      }
+      case 'hoek': {
+        const r = store.ruimte(a.ruimteId);
+        if (r) { r.punten[a.index] = snapPunt(w, raster); a.verplaatst = true; this.plan(); }
+        break;
+      }
+      case 'verf': {
+        const doel = e.target.closest('[data-kind="component"]');
+        if (doel) this.verfComponent(doel.dataset.id);
+        break;
+      }
+      default: break;
+    }
+  }
+
+  onUp(e) {
+    this.pointers.delete(e.pointerId);
+    if (this.pointers.size < 2) this.pinch = null;
+    const a = this.actie;
+    this.actie = null;
+    if (!a) return;
+
+    switch (a.type) {
+      case 'rect': {
+        if (!a.huidig) break;
+        const b = omhullende(rechthoek(a.start, a.huidig));
+        if (b.w < 0.3 || b.h < 0.3) break;
+        this.maakRuimte(rechthoek(a.start, a.huidig));
+        break;
+      }
+      case 'muur': {
+        if (!a.huidig || afstand(a.start, a.huidig) < 0.2) break;
+        store.commit('muur getekend', (p) => {
+          p.plan.muren.push({ id: uid('mur'), a: a.start, b: a.huidig, dikte: a.dikte || 0.1 });
+        });
+        break;
+      }
+      case 'rubber': {
+        if (!a.huidig) break;
+        const b = omhullende([a.start, a.huidig]);
+        const gevonden = store.project.componenten
+          .filter((c) => c.x >= b.x1 && c.x <= b.x2 && c.y >= b.y1 && c.y <= b.y2)
+          .map((c) => c.id);
+        if (gevonden.length) store.selecteer(gevonden, e.shiftKey);
+        break;
+      }
+      case 'sleep':
+      case 'hoek': {
+        if (a.verplaatst) {
+          // De objecten zijn al aangepast; enkel vastleggen voor undo.
+          this.herberekenRuimtes();
+          store.commit('verplaatst', () => {});
+        }
+        break;
+      }
+      default: break;
+    }
+    this.plan();
+  }
+
+  onDubbel(e) {
+    if (store.ui.tool === 'polygoon') { this.sluitPolygoon(); return; }
+    const doel = e.target.closest('[data-kind]');
+    if (doel) {
+      store.selecteer(doel.dataset.id);
+      document.dispatchEvent(new CustomEvent('elek:bewerk', { detail: { id: doel.dataset.id } }));
+    }
+  }
+
+  /* ---------------------------------------------------------------- *
+   * Acties
+   * ---------------------------------------------------------------- */
+  maakRuimte(punten) {
+    const type = store.ui.nieuweRuimteType || 'overig';
+    const d = ruimteDef(type);
+    let id = null;
+    store.commit('ruimte toegevoegd', (p) => {
+      const nr = p.plan.ruimtes.length + 1;
+      const r = {
+        id: uid('rmt'),
+        naam: d.naam === 'Overige ruimte' ? `Ruimte ${nr}` : d.naam,
+        type,
+        punten: punten.map((pt) => ({ x: +pt.x.toFixed(3), y: +pt.y.toFixed(3) })),
+        kleur: d.kleur,
+        muurdikte: 0.09,
+        niveauId: p.plan.niveaus[0] && p.plan.niveaus[0].id,
+      };
+      p.plan.ruimtes.push(r);
+      id = r.id;
+    });
+    store.selecteer(id);
+    this.herberekenRuimtes();
+    return id;
+  }
+
+  sluitPolygoon() {
+    const punten = store.ui.bezigPolygoon;
+    store.setUI({ bezigPolygoon: null });
+    if (!punten || punten.length < 3) return;
+    this.maakRuimte(punten);
+  }
+
+  /** Koppelt elke component opnieuw aan de ruimte waarin hij ligt. */
+  herberekenRuimtes() {
+    let gewijzigd = false;
+    for (const c of store.project.componenten) {
+      const r = this.ruimteOp({ x: c.x, y: c.y }) ||
+        this.dichtstbijzijndeRuimte({ x: c.x, y: c.y });
+      const nieuw = r ? r.id : null;
+      if (c.ruimteId !== nieuw) { c.ruimteId = nieuw; gewijzigd = true; }
+    }
+    return gewijzigd;
+  }
+
+  dichtstbijzijndeRuimte(punt) {
+    let beste = null;
+    for (const r of store.project.plan.ruimtes) {
+      for (const [a, b] of segmenten(r.punten)) {
+        const pr = projecteerOpSegment(punt, a, b);
+        if (pr.afstand < 0.6 && (!beste || pr.afstand < beste.afstand)) beste = { afstand: pr.afstand, r };
+      }
+    }
+    return beste ? beste.r : null;
+  }
+
+  verbindKlik(id) {
+    const comp = store.component(id);
+    if (!comp) return;
+    const bron = store.ui.verbindBron;
+    if (!bron) {
+      store.setUI({ verbindBron: id });
+      store.selecteer(id);
+      return;
+    }
+    if (bron === id) { store.setUI({ verbindBron: null }); return; }
+    store.commit('verbinding gemaakt', (p) => {
+      const bestaat = p.verbindingen.find(
+        (v) => (v.van === bron && v.naar === id) || (v.van === id && v.naar === bron)
+      );
+      if (bestaat) {
+        p.verbindingen = p.verbindingen.filter((v) => v !== bestaat);
+      } else {
+        p.verbindingen.push({ id: uid('vbd'), van: bron, naar: id });
+      }
+    });
+    store.setUI({ verbindBron: null });
+  }
+
+  verfComponent(id) {
+    const kringId = store.ui.actieveKring;
+    if (!kringId || !id) return;
+    const comp = store.component(id);
+    if (!comp || comp.kringId === kringId) return;
+    store.commit('kring toegewezen', () => { comp.kringId = kringId; });
+  }
+
+  verwijderObject(id) {
+    store.commit('verwijderd', (p) => {
+      p.componenten = p.componenten.filter((c) => c.id !== id);
+      p.plan.ruimtes = p.plan.ruimtes.filter((r) => r.id !== id);
+      p.plan.muren = p.plan.muren.filter((m) => m.id !== id);
+      p.verbindingen = p.verbindingen.filter((v) => v.van !== id && v.naar !== id);
+    });
+  }
+}
+
+function escape(t) {
+  return String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+}
+
+/* ---- board.js ---- */
+// Verdeelbordweergave: eendraadschema van teller tot kring, plus de
+// overzichtslijst "welke component op welke zekering".
+
+
+
+
+
+
+const KOL = 132;    // kolombreedte per kring
+const KOP = 96;     // hoogte van het kopblok (teller + hoofdautomaat)
+const RIJ = 232;    // hoogte van een differentieelblok
+
+function tekstRegels(tekst, max = 18) {
+  const woorden = String(tekst).split(' ');
+  const regels = [];
+  let huidig = '';
+  for (const w of woorden) {
+    if ((huidig + ' ' + w).trim().length > max && huidig) { regels.push(huidig); huidig = w; }
+    else huidig = (huidig + ' ' + w).trim();
+  }
+  if (huidig) regels.push(huidig);
+  return regels.slice(0, 3);
+}
+
+/** Eendraadschema van het verdeelbord als SVG-string. */
+function bouwBordSVG(project = store.project) {
+  const differentiëlen = project.differentiëlen.filter(
+    (d) => project.kringen.some((k) => k.differentieelId === d.id)
+  );
+  const wees = project.kringen.filter((k) => !differentiëlen.some((d) => d.id === k.differentieelId));
+  const blokken = differentiëlen.map((d) => ({
+    dif: d,
+    kringen: project.kringen.filter((k) => k.differentieelId === d.id),
+  }));
+  if (wees.length) blokken.push({ dif: null, kringen: wees });
+
+  const maxKringen = Math.max(1, ...blokken.map((b) => b.kringen.length));
+  const breedte = Math.max(680, 190 + maxKringen * KOL);
+  const hoogte = KOP + blokken.length * RIJ + 40;
+
+  let s = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${breedte} ${hoogte}" width="${breedte}" height="${hoogte}" class="bord-svg" font-family="system-ui, sans-serif">`;
+  s += `<rect x="0" y="0" width="${breedte}" height="${hoogte}" fill="var(--vlak)"/>`;
+
+  const xStart = 60;
+  // Kopblok: teller en hoofdautomaat
+  s += `<g stroke="var(--symbool)" stroke-width="2" fill="none">`;
+  s += `<circle cx="${xStart}" cy="30" r="20" fill="var(--sym-fill)"/>`;
+  s += `<line x1="${xStart}" y1="50" x2="${xStart}" y2="${KOP - 10}"/>`;
+  s += `<rect x="${xStart - 22}" y="${KOP - 10}" width="44" height="26" rx="4" fill="var(--sym-fill)"/>`;
+  s += `</g>`;
+  s += `<text x="${xStart}" y="31" text-anchor="middle" dominant-baseline="central" font-size="11" font-weight="600" fill="var(--tekst)">kWh</text>`;
+  s += `<text x="${xStart}" y="${KOP + 4}" text-anchor="middle" dominant-baseline="central" font-size="12" font-weight="700" fill="var(--tekst)">${project.net.hoofdzekering}A</text>`;
+  s += `<text x="${xStart + 34}" y="20" font-size="12" fill="var(--tekst-zacht)">${project.net.fasen === 3 ? '3F+N 400 V' : '1F+N 230 V'} · hoofdzekering ${project.net.hoofdzekering} A</text>`;
+  s += `<text x="${xStart + 34}" y="38" font-size="12" fill="var(--tekst-zacht)">${escape(project.naam || '')}</text>`;
+
+  let y = KOP + 30;
+  for (const blok of blokken) {
+    const barY = y + 58;
+    // Verticale voeding naar het differentieel
+    s += `<line x1="${xStart}" y1="${y - 14}" x2="${xStart}" y2="${y + 16}" stroke="var(--symbool)" stroke-width="2"/>`;
+    // Differentieelblok
+    if (blok.dif) {
+      const g = blok.dif.gevoeligheid;
+      const kleur = g <= 30 ? 'var(--accent)' : 'var(--symbool)';
+      s += `<rect x="${xStart - 16}" y="${y + 16}" width="168" height="30" rx="5" fill="var(--sym-fill)" stroke="${kleur}" stroke-width="2"/>`;
+      s += `<text x="${xStart + 68}" y="${y + 31}" text-anchor="middle" dominant-baseline="central" font-size="12" font-weight="600" fill="var(--tekst)">` +
+        `Δ ${g} mA · ${blok.dif.amp} A · type ${blok.dif.type || 'A'}</text>`;
+      s += `<line x1="${xStart}" y1="${y + 46}" x2="${xStart}" y2="${barY}" stroke="var(--symbool)" stroke-width="2"/>`;
+    } else {
+      s += `<text x="${xStart + 14}" y="${y + 34}" font-size="12" fill="var(--fout)">Zonder differentieel</text>`;
+      s += `<line x1="${xStart}" y1="${y + 40}" x2="${xStart}" y2="${barY}" stroke="var(--fout)" stroke-width="2"/>`;
+    }
+
+    // Rail
+    const laatsteX = xStart + 60 + (blok.kringen.length - 1) * KOL;
+    s += `<line x1="${xStart}" y1="${barY}" x2="${Math.max(laatsteX, xStart + 40)}" y2="${barY}" stroke="var(--symbool)" stroke-width="3"/>`;
+
+    blok.kringen.forEach((k, i) => {
+      const x = xStart + 60 + i * KOL;
+      const comps = componentenVanKring(project, k.id);
+      s += `<line x1="${x}" y1="${barY}" x2="${x}" y2="${barY + 24}" stroke="${k.kleur}" stroke-width="2.5"/>`;
+      // Automaat
+      s += `<rect x="${x - 26}" y="${barY + 24}" width="52" height="30" rx="5" fill="var(--sym-fill)" stroke="${k.kleur}" stroke-width="2.5"/>`;
+      s += `<text x="${x}" y="${barY + 39}" text-anchor="middle" dominant-baseline="central" font-size="13" font-weight="700" fill="var(--tekst)">${k.amp} A</text>`;
+      s += `<text x="${x + 32}" y="${barY + 32}" font-size="10" fill="var(--tekst-zacht)">${k.curve || 'C'}</text>`;
+      // Kabel
+      s += `<line x1="${x}" y1="${barY + 54}" x2="${x}" y2="${barY + 76}" stroke="${k.kleur}" stroke-width="2.5"/>`;
+      s += `<text x="${x + 6}" y="${barY + 70}" font-size="10" fill="var(--tekst-zacht)">${k.mm2} mm²</text>`;
+      // Kringnummer en naam
+      s += `<circle cx="${x}" cy="${barY + 88}" r="11" fill="${k.kleur}"/>`;
+      s += `<text x="${x}" y="${barY + 88}" text-anchor="middle" dominant-baseline="central" font-size="11" font-weight="700" fill="#fff">${k.nummer}</text>`;
+      tekstRegels(k.naam, 16).forEach((regel, ri) => {
+        s += `<text x="${x}" y="${barY + 108 + ri * 13}" text-anchor="middle" font-size="11" fill="var(--tekst)">${escape(regel)}</text>`;
+      });
+      // Symbolen van de aangesloten componenten
+      const perType = new Map();
+      for (const c of comps) perType.set(c.type, (perType.get(c.type) || 0) + 1);
+      const types = [...perType.entries()].slice(0, 4);
+      types.forEach(([type, aantal], ti) => {
+        const sx = x - ((types.length - 1) * 26) / 2 + ti * 26;
+        const sy = barY + 152;
+        s += `<g transform="translate(${sx} ${sy}) scale(0.16)" fill="none" stroke="${k.kleur}" stroke-width="8">${symbool(type)}</g>`;
+        if (aantal > 1) s += `<text x="${sx + 11}" y="${sy + 13}" font-size="9" font-weight="700" fill="var(--tekst)">${aantal}</text>`;
+      });
+      const punten = puntenInKring(project, k.id);
+      s += `<text x="${x}" y="${barY + 178}" text-anchor="middle" font-size="10" fill="var(--tekst-zacht)">${comps.length} comp. · ${punten} pt</text>`;
+    });
+
+    y += RIJ;
+  }
+
+  s += '</svg>';
+  return s;
+}
+
+/** Overzichtstabel: welke component hoort op welke zekering. */
+function bouwBordTabel(project = store.project) {
+  if (!project.kringen.length) {
+    return '<p class="leeg">Nog geen kringen. Ga naar stap 3 en maak kringen aan of gebruik “Automatisch verdelen”.</p>';
+  }
+  let h = '';
+  for (const k of project.kringen) {
+    const dif = project.differentiëlen.find((d) => d.id === k.differentieelId);
+    const comps = componentenVanKring(project, k.id);
+    const perRuimte = new Map();
+    for (const c of comps) {
+      const r = c.ruimteId && project.plan.ruimtes.find((x) => x.id === c.ruimteId);
+      const naam = r ? (r.naam || ruimteDef(r.type).naam) : 'Zonder ruimte';
+      if (!perRuimte.has(naam)) perRuimte.set(naam, []);
+      perRuimte.get(naam).push(c);
+    }
+    h += `<section class="kring-kaart" style="--kring:${k.kleur}">
+      <header>
+        <span class="kring-nr" style="background:${k.kleur}">${k.nummer}</span>
+        <div>
+          <h4>${escape(k.naam)}</h4>
+          <p>${k.amp} A · ${k.mm2} mm² · curve ${k.curve || 'C'} · ${dif ? `Δ${dif.gevoeligheid} mA` : '<span class="fout-tekst">geen differentieel</span>'}</p>
+        </div>
+        <div class="kring-cijfers">
+          <span>${puntenInKring(project, k.id)} ${puntenInKring(project, k.id) === 1 ? 'punt' : 'punten'}</span>
+          <span>${Math.round(vermogenVanKring(project, k.id))} W</span>
+        </div>
+      </header>`;
+    if (!comps.length) {
+      h += '<p class="leeg">Geen componenten toegewezen.</p>';
+    } else {
+      for (const [ruimte, lijst] of perRuimte) {
+        const samengevat = new Map();
+        for (const c of lijst) {
+          const sleutel = c.type + '|' + (c.label || '');
+          if (!samengevat.has(sleutel)) samengevat.set(sleutel, { comp: c, aantal: 0 });
+          samengevat.get(sleutel).aantal += 1;
+        }
+        h += `<div class="kring-ruimte"><strong>${escape(ruimte)}</strong><ul>`;
+        for (const { comp, aantal } of samengevat.values()) {
+          const d = def(comp.type);
+          h += `<li><span class="mini-sym"><svg viewBox="-56 -56 112 112" width="18" height="18" fill="none" stroke="currentColor" stroke-width="7">${symbool(comp.type)}</svg></span>` +
+            `${aantal > 1 ? aantal + '× ' : ''}${escape(d.naam)}${comp.label ? ' — ' + escape(comp.label) : ''}</li>`;
+        }
+        h += '</ul></div>';
+      }
+    }
+    h += '</section>';
+  }
+
+  const zonder = project.componenten.filter((c) => {
+    const d = def(c.type);
+    return !c.kringId && (d.kringtype === 'verlichting' || d.kringtype === 'stopcontact' || d.kringtype === 'vast' || d.kringtype === 'bediening');
+  });
+  if (zonder.length) {
+    h += `<section class="kring-kaart zonder"><header><span class="kring-nr">?</span><div><h4>Nog niet toegewezen</h4>
+      <p>${zonder.length} component${zonder.length > 1 ? 'en' : ''} zonder kring</p></div></header><ul class="plat">`;
+    for (const c of zonder) h += `<li>${escape(def(c.type).naam)}${c.label ? ' — ' + escape(c.label) : ''}</li>`;
+    h += '</ul></section>';
+  }
+  return h;
+}
+
+/* ---- panels.js ---- */
+// Zijpanelen: gereedschap per stap, symbolenpalet, kringbeheer en
+// het eigenschappenpaneel van de selectie.
+
+
+
+
+
+
+
+let planvlak = null;
+function koppelCanvas(c) { planvlak = c; }
+
+const links = () => document.getElementById('paneel-links');
+const rechts = () => document.getElementById('paneel-rechts');
+
+/* ------------------------------------------------------------------ *
+ * Linkerpaneel
+ * ------------------------------------------------------------------ */
+function tekenLinks() {
+  const stap = store.ui.stap;
+  let h = '';
+  if (stap === 1) h = paneelPlattegrond();
+  else if (stap === 2) h = paneelComponenten();
+  else h = paneelKringen();
+  links().innerHTML = h;
+}
+
+function gereedschapKnop(tool, label, icoon, actief) {
+  return `<button class="tool${actief ? ' actief' : ''}" data-actie="tool" data-tool="${tool}" title="${label}">
+    <span class="tool-icoon">${icoon}</span><span class="tool-label">${label}</span></button>`;
+}
+
+function paneelPlattegrond() {
+  const p = store.project;
+  const ui = store.ui;
+  const t = ui.tool;
+  let h = `<div class="paneel-kop"><h2>1 · Situatieschema</h2>
+    <p>Teken eerst de ruimtes van de woning. Sleep een rechthoek of klik een vorm punt per punt.</p></div>
+    <div class="tool-rij">
+      ${gereedschapKnop('select', 'Selecteren', '⬉', t === 'select')}
+      ${gereedschapKnop('rechthoek', 'Ruimte', '▭', t === 'rechthoek')}
+      ${gereedschapKnop('polygoon', 'Vorm', '⬠', t === 'polygoon')}
+      ${gereedschapKnop('muur', 'Muur', '▬', t === 'muur')}
+      ${gereedschapKnop('gum', 'Wissen', '⌫', t === 'gum')}
+    </div>`;
+
+  h += `<label class="veld"><span>Type voor nieuwe ruimte</span>
+    <select data-actie="nieuwe-ruimte-type">
+      ${RUIMTETYPES.map((r) => `<option value="${r.key}"${(ui.nieuweRuimteType || 'overig') === r.key ? ' selected' : ''}>${r.naam}</option>`).join('')}
+    </select></label>`;
+
+  if (ui.bezigPolygoon && ui.bezigPolygoon.length) {
+    h += `<div class="hint actief-hint">${ui.bezigPolygoon.length} punt(en) geplaatst ·
+      <button class="mini" data-actie="sluit-polygoon">Vorm sluiten</button>
+      <button class="mini" data-actie="stop-polygoon">Annuleren</button></div>`;
+  }
+
+  h += `<div class="lijst-kop"><h3>Ruimtes (${p.plan.ruimtes.length})</h3></div><ul class="lijst">`;
+  if (!p.plan.ruimtes.length) h += '<li class="leeg">Nog geen ruimtes getekend.</li>';
+  for (const r of p.plan.ruimtes) {
+    const d = ruimteDef(r.type);
+    const aantal = p.componenten.filter((c) => c.ruimteId === r.id).length;
+    h += `<li class="rij${store.isGeselecteerd(r.id) ? ' geselecteerd' : ''}" data-actie="selecteer" data-id="${r.id}">
+      <span class="kleurbol" style="background:${r.kleur || d.kleur}"></span>
+      <span class="rij-naam">${escape(r.naam || d.naam)}</span>
+      <span class="rij-meta">${oppervlakte(r.punten).toFixed(1)} m² · ${aantal}</span></li>`;
+  }
+  h += '</ul>';
+
+  h += `<div class="lijst-kop"><h3>Weergave</h3></div>
+    <label class="schakel"><input type="checkbox" data-actie="ui" data-veld="toonRaster" ${store.ui.toonRaster ? 'checked' : ''}> Raster tonen</label>
+    <label class="schakel"><input type="checkbox" data-actie="ui" data-veld="toonLabels" ${store.ui.toonLabels ? 'checked' : ''}> Namen tonen</label>
+    <label class="schakel"><input type="checkbox" data-actie="ui" data-veld="toonMaten" ${store.ui.toonMaten ? 'checked' : ''}> Oppervlakte tonen</label>
+    <label class="veld"><span>Raster (m)</span>
+      <select data-actie="raster">${[0.05, 0.1, 0.25, 0.5, 1].map((v) => `<option value="${v}"${p.plan.raster === v ? ' selected' : ''}>${v} m</option>`).join('')}</select></label>`;
+  return h;
+}
+
+function paneelComponenten() {
+  const ui = store.ui;
+  const zoek = (ui.zoek || '').toLowerCase();
+  let h = `<div class="paneel-kop"><h2>2 · Componenten</h2>
+    <p>Kies een symbool en klik op het plan. Stopcontacten en schakelaars klikken vanzelf tegen de dichtstbijzijnde muur.</p></div>
+    <div class="tool-rij">
+      ${gereedschapKnop('select', 'Selecteren', '⬉', ui.tool === 'select')}
+      ${gereedschapKnop('verbind', 'Verbinden', '⌇', ui.tool === 'verbind')}
+      ${gereedschapKnop('gum', 'Wissen', '⌫', ui.tool === 'gum')}
+    </div>`;
+  if (ui.tool === 'verbind') {
+    h += `<div class="hint actief-hint">Klik een schakelaar en daarna het lichtpunt dat hij bedient.
+      ${ui.verbindBron ? ' <strong>Schakelaar gekozen…</strong>' : ''}</div>`;
+  }
+  h += `<input class="zoek" type="search" placeholder="Zoek symbool…" data-actie="zoek" value="${escape(ui.zoek || '')}">`;
+
+  for (const groep of GROEPEN) {
+    const items = CATALOG.filter((c) => c.groep === groep &&
+      (!zoek || c.naam.toLowerCase().includes(zoek) || c.key.includes(zoek)));
+    if (!items.length) continue;
+    h += `<div class="lijst-kop"><h3>${groep}</h3></div><div class="palet">`;
+    for (const c of items) {
+      const actief = ui.tool === 'plaats' && ui.plaatsType === c.key;
+      h += `<button class="palet-knop${actief ? ' actief' : ''}" data-actie="plaats-type" data-type="${c.key}" title="${escape(c.naam)}">
+        ${symboolIcoon(c.key, 26)}<span>${escape(c.naam)}</span></button>`;
+    }
+    h += '</div>';
+  }
+
+  const geteld = new Map();
+  for (const c of store.project.componenten) geteld.set(c.type, (geteld.get(c.type) || 0) + 1);
+  if (geteld.size) {
+    h += `<div class="lijst-kop"><h3>Geplaatst (${store.project.componenten.length})</h3></div><ul class="lijst compact">`;
+    for (const [type, aantal] of [...geteld.entries()].sort((a, b) => b[1] - a[1])) {
+      h += `<li class="rij" data-actie="selecteer-type" data-type="${type}">
+        <span class="rij-icoon">${symboolIcoon(type, 18)}</span>
+        <span class="rij-naam">${escape(def(type).naam)}</span><span class="rij-meta">${aantal}</span></li>`;
+    }
+    h += '</ul>';
+  }
+  return h;
+}
+
+function paneelKringen() {
+  const p = store.project;
+  const ui = store.ui;
+  let h = `<div class="paneel-kop"><h2>3 · Kringen &amp; zekeringen</h2>
+    <p>Maak kringen aan en klik componenten op het plan aan om ze op die zekering te zetten.</p></div>
+    <div class="knop-rij">
+      <button class="knop primair" data-actie="auto-verdeel">Automatisch verdelen</button>
+      <button class="knop" data-actie="nieuwe-kring">Kring toevoegen</button>
+    </div>`;
+
+  if (ui.actieveKring) {
+    const k = store.kring(ui.actieveKring);
+    if (k) {
+      h += `<div class="hint actief-hint" style="border-color:${k.kleur}">
+        Klik of sleep over componenten om ze aan <strong>${escape(k.naam)}</strong> toe te wijzen.
+        <button class="mini" data-actie="stop-toewijzen">Klaar</button></div>`;
+    }
+  }
+
+  h += '<div class="lijst-kop"><h3>Differentiëlen</h3><button class="mini" data-actie="nieuw-differentieel">+</button></div><ul class="lijst">';
+  for (const d of p.differentiëlen) {
+    const aantal = p.kringen.filter((k) => k.differentieelId === d.id).length;
+    h += `<li class="rij dif-rij">
+      <input class="inline-invoer" value="${escape(d.naam)}" data-actie="dif-naam" data-id="${d.id}">
+      <select class="mini-select" data-actie="dif-gevoelig" data-id="${d.id}">
+        ${[10, 30, 100, 300, 500].map((g) => `<option value="${g}"${d.gevoeligheid === g ? ' selected' : ''}>${g} mA</option>`).join('')}
+      </select>
+      <select class="mini-select" data-actie="dif-amp" data-id="${d.id}">
+        ${[25, 40, 63, 80].map((a) => `<option value="${a}"${d.amp === a ? ' selected' : ''}>${a} A</option>`).join('')}
+      </select>
+      <span class="rij-meta">${aantal}</span>
+      <button class="mini gevaar" data-actie="verwijder-differentieel" data-id="${d.id}" title="Verwijderen">×</button></li>`;
+  }
+  h += '</ul>';
+
+  h += `<div class="lijst-kop"><h3>Kringen (${p.kringen.length})</h3></div><ul class="lijst kringen">`;
+  if (!p.kringen.length) h += '<li class="leeg">Nog geen kringen. Gebruik “Automatisch verdelen” voor een eerste voorstel.</li>';
+  for (const k of p.kringen) {
+    const comps = componentenVanKring(p, k.id);
+    const punten = puntenInKring(p, k.id);
+    const max = maxPuntenVan(k);
+    const tevol = max && punten > max;
+    h += `<li class="kring-rij${ui.actieveKring === k.id ? ' actief' : ''}" data-actie="kies-kring" data-id="${k.id}">
+      <span class="kring-nr" style="background:${k.kleur}">${k.nummer}</span>
+      <span class="kring-info">
+        <input class="inline-invoer" value="${escape(k.naam)}" data-actie="kring-naam" data-id="${k.id}">
+        <span class="rij-meta">${k.amp} A · ${k.mm2} mm² · ${comps.length} comp.${max ? ` · <span class="${tevol ? 'fout-tekst' : ''}">${punten}/${max} pt</span>` : ''}</span>
+      </span>
+      <button class="mini toewijs${ui.actieveKring === k.id ? ' aan' : ''}" data-actie="kies-kring" data-id="${k.id}" title="Componenten aan deze kring toewijzen">◎</button>
+      <button class="mini gevaar" data-actie="verwijder-kring" data-id="${k.id}" title="Kring verwijderen">×</button></li>`;
+  }
+  h += '</ul>';
+
+  // Detailinstellingen van de gekozen kring
+  const actief = ui.actieveKring && store.kring(ui.actieveKring);
+  if (actief) {
+    const dif = actief.differentieelId && store.differentieel(actief.differentieelId);
+    h += `<div class="kring-detail" style="--kring:${actief.kleur}">
+      <div class="lijst-kop"><h3>Kring ${actief.nummer} instellen</h3></div>
+      <div class="veld-rij">
+        <label class="veld"><span>Automaat</span>
+          <select data-actie="kring-amp" data-id="${actief.id}">${AMPERES.map((a) => `<option value="${a}"${actief.amp === a ? ' selected' : ''}>${a} A</option>`).join('')}</select></label>
+        <label class="veld"><span>Kabel</span>
+          <select data-actie="kring-mm2" data-id="${actief.id}">${SECTIES.map((m) => `<option value="${m}"${actief.mm2 === m ? ' selected' : ''}>${m} mm²</option>`).join('')}</select></label>
+      </div>
+      <div class="veld-rij">
+        <label class="veld"><span>Type kring</span>
+          <select data-actie="kring-type" data-id="${actief.id}">${Object.entries(KRINGSJABLOON).map(([k2, v]) => `<option value="${k2}"${actief.type === k2 ? ' selected' : ''}>${v.naam}</option>`).join('')}</select></label>
+        <label class="veld"><span>Differentieel</span>
+          <select data-actie="kring-dif" data-id="${actief.id}">
+            <option value="">— geen —</option>
+            ${p.differentiëlen.map((d) => `<option value="${d.id}"${actief.differentieelId === d.id ? ' selected' : ''}>${escape(d.naam)} (${d.gevoeligheid} mA)</option>`).join('')}
+          </select></label>
+      </div>
+      ${dif && dif.gevoeligheid > 30 ? '<p class="hint">Voor badkamer, wasplaats, buiten en vaste toestellen met water hoort 30 mA.</p>' : ''}
+    </div>`;
+  }
+
+  const meldingen = controleer(p);
+  h += `<div class="lijst-kop"><h3>Controle</h3><span class="badge${meldingen.some((m) => m.niveau === 'fout') ? ' rood' : ''}">${meldingen.length}</span></div>`;
+  if (!meldingen.length) {
+    h += '<p class="ok-tekst">Geen opmerkingen gevonden.</p>';
+  } else {
+    h += '<ul class="meldingen">';
+    for (const m of meldingen) {
+      h += `<li class="melding ${m.niveau}"${m.ids.length ? ` data-actie="toon-melding" data-ids="${m.ids.join(',')}"` : ''}>${escape(m.tekst)}</li>`;
+    }
+    h += '</ul>';
+  }
+  h += '<p class="voetnoot">Controle op basis van gangbare AREI-vuistregels. Geen vervanging voor de keuring door een erkend organisme.</p>';
+  return h;
+}
+
+/* ------------------------------------------------------------------ *
+ * Rechterpaneel (eigenschappen)
+ * ------------------------------------------------------------------ */
+function tekenRechts() {
+  const sel = store.ui.selectie;
+  let h = '';
+  if (sel.length > 1) h = paneelMeervoudig(sel);
+  else if (sel.length === 1) {
+    const comp = store.component(sel[0]);
+    const ruimte = store.ruimte(sel[0]);
+    h = comp ? paneelComponent(comp) : ruimte ? paneelRuimte(ruimte) : paneelProject();
+  } else h = paneelProject();
+  rechts().innerHTML = h;
+  document.getElementById('werkvlak').classList.toggle('met-selectie', sel.length > 0);
+}
+
+function kringKeuze(huidig, actie = 'comp-kring') {
+  const opties = store.project.kringen
+    .map((k) => `<option value="${k.id}"${huidig === k.id ? ' selected' : ''}>${k.nummer} · ${escape(k.naam)} (${k.amp}A)</option>`)
+    .join('');
+  return `<select data-actie="${actie}"><option value="">— geen kring —</option>${opties}</select>`;
+}
+
+function paneelComponent(c) {
+  const d = def(c.type);
+  const ruimte = c.ruimteId && store.ruimte(c.ruimteId);
+  const kring = c.kringId && store.kring(c.kringId);
+  const verbindingen = store.project.verbindingen.filter((v) => v.van === c.id || v.naar === c.id);
+  let h = `<div class="paneel-kop"><h2>${escape(d.naam)}</h2>
+    <p>${escape(d.groep)}${ruimte ? ' · ' + escape(ruimte.naam || ruimteDef(ruimte.type).naam) : ' · buiten een ruimte'}</p></div>
+    <div class="groot-symbool" style="color:${kring ? kring.kleur : 'var(--symbool)'}">${symboolIcoon(c.type, 64)}</div>
+    <label class="veld"><span>Naam / opschrift</span>
+      <input type="text" value="${escape(c.label || '')}" placeholder="bv. bureau links" data-actie="comp-label"></label>
+    <label class="veld"><span>Kring / zekering</span>${kringKeuze(c.kringId)}</label>`;
+  if (kring) {
+    h += `<p class="kring-samenvatting" style="--kring:${kring.kleur}">
+      Kring ${kring.nummer}: ${kring.amp} A · ${kring.mm2} mm²${kring.differentieelId && store.differentieel(kring.differentieelId) ? ` · Δ${store.differentieel(kring.differentieelId).gevoeligheid} mA` : ''}</p>`;
+  }
+  h += `<div class="veld-rij">
+      <label class="veld"><span>Hoogte (cm)</span><input type="number" step="5" value="${c.hoogte ?? ''}" data-actie="comp-hoogte"></label>
+      <label class="veld"><span>Vermogen (W)</span><input type="number" step="10" value="${c.watt ?? ''}" data-actie="comp-watt"></label>
+    </div>
+    <label class="veld"><span>Draaiing (${Math.round(c.rot || 0)}°)</span>
+      <input type="range" min="0" max="355" step="5" value="${Math.round(c.rot || 0)}" data-actie="comp-rot"></label>
+    <label class="veld"><span>Type wijzigen</span>
+      <select data-actie="comp-type">${CATALOG.map((x) => `<option value="${x.key}"${x.key === c.type ? ' selected' : ''}>${x.groep} — ${x.naam}</option>`).join('')}</select></label>
+    <label class="veld"><span>Opmerking</span><textarea rows="2" data-actie="comp-opmerking">${escape(c.opmerking || '')}</textarea></label>`;
+  if (verbindingen.length) {
+    h += `<div class="lijst-kop"><h3>Bediening</h3></div><ul class="lijst compact">`;
+    for (const v of verbindingen) {
+      const ander = store.component(v.van === c.id ? v.naar : v.van);
+      if (!ander) continue;
+      h += `<li class="rij"><span class="rij-icoon">${symboolIcoon(ander.type, 18)}</span>
+        <span class="rij-naam">${escape(def(ander.type).naam)}</span>
+        <button class="mini gevaar" data-actie="verwijder-verbinding" data-id="${v.id}">×</button></li>`;
+    }
+    h += '</ul>';
+  }
+  h += `<div class="knop-rij">
+      <button class="knop" data-actie="dupliceer">Dupliceren</button>
+      <button class="knop gevaar" data-actie="verwijder-selectie">Verwijderen</button>
+    </div>`;
+  return h;
+}
+
+function paneelRuimte(r) {
+  const d = ruimteDef(r.type);
+  const comps = store.project.componenten.filter((c) => c.ruimteId === r.id);
+  return `<div class="paneel-kop"><h2>${escape(r.naam || d.naam)}</h2>
+      <p>${oppervlakte(r.punten).toFixed(2)} m² · ${comps.length} componenten</p></div>
+    <label class="veld"><span>Naam</span><input type="text" value="${escape(r.naam || '')}" data-actie="ruimte-naam"></label>
+    <label class="veld"><span>Type ruimte</span>
+      <select data-actie="ruimte-type">${RUIMTETYPES.map((x) => `<option value="${x.key}"${x.key === r.type ? ' selected' : ''}>${x.naam}</option>`).join('')}</select></label>
+    <div class="veld-rij">
+      <label class="veld"><span>Kleur</span><input type="color" value="${r.kleur || d.kleur}" data-actie="ruimte-kleur"></label>
+      <label class="veld"><span>Muurdikte (m)</span><input type="number" step="0.01" min="0.02" value="${r.muurdikte || 0.09}" data-actie="ruimte-muurdikte"></label>
+    </div>
+    ${d.vochtig ? '<p class="hint">Vochtige ruimte: kringen horen hier achter een differentieel van 30 mA.</p>' : ''}
+    <div class="knop-rij">
+      <button class="knop" data-actie="selecteer-inhoud">Componenten selecteren</button>
+      <button class="knop gevaar" data-actie="verwijder-selectie">Ruimte verwijderen</button>
+    </div>`;
+}
+
+function paneelMeervoudig(sel) {
+  const comps = sel.map((id) => store.component(id)).filter(Boolean);
+  return `<div class="paneel-kop"><h2>${sel.length} objecten</h2><p>${comps.length} componenten geselecteerd</p></div>
+    ${comps.length ? `<label class="veld"><span>Alles op kring</span>${kringKeuze('', 'bulk-kring')}</label>` : ''}
+    <div class="knop-rij">
+      <button class="knop" data-actie="dupliceer">Dupliceren</button>
+      <button class="knop gevaar" data-actie="verwijder-selectie">Verwijderen</button>
+    </div>`;
+}
+
+function paneelProject() {
+  const p = store.project;
+  const meldingen = controleer(p);
+  const fouten = meldingen.filter((m) => m.niveau === 'fout').length;
+  return `<div class="paneel-kop"><h2>Project</h2><p>Niets geselecteerd — hier staan de algemene gegevens.</p></div>
+    <label class="veld"><span>Projectnaam</span><input type="text" value="${escape(p.naam || '')}" data-actie="prj-naam"></label>
+    <label class="veld"><span>Klant</span><input type="text" value="${escape(p.klant || '')}" data-actie="prj-klant"></label>
+    <label class="veld"><span>Adres</span><input type="text" value="${escape(p.adres || '')}" data-actie="prj-adres"></label>
+    <div class="veld-rij">
+      <label class="veld"><span>Aansluiting</span>
+        <select data-actie="prj-fasen"><option value="1"${p.net.fasen === 1 ? ' selected' : ''}>1 fase 230 V</option>
+        <option value="3"${p.net.fasen === 3 ? ' selected' : ''}>3 fasen 400 V</option></select></label>
+      <label class="veld"><span>Hoofdzekering</span>
+        <select data-actie="prj-hoofd">${[25, 32, 40, 50, 63, 80].map((a) => `<option value="${a}"${p.net.hoofdzekering === a ? ' selected' : ''}>${a} A</option>`).join('')}</select></label>
+    </div>
+    <div class="cijfers">
+      <div><strong>${p.plan.ruimtes.length}</strong><span>ruimtes</span></div>
+      <div><strong>${p.componenten.length}</strong><span>componenten</span></div>
+      <div><strong>${p.kringen.length}</strong><span>kringen</span></div>
+      <div><strong>${(totaalVermogen(p) / 1000).toFixed(1)}</strong><span>kW geschat</span></div>
+    </div>
+    <label class="schakel"><input type="checkbox" data-actie="ui" data-veld="kleurPerKring" ${store.ui.kleurPerKring ? 'checked' : ''}> Kleur per kring tonen</label>
+    ${fouten ? `<p class="melding fout">${fouten} fout(en) in de controle — zie stap 3.</p>` : ''}
+    <div class="knop-rij"><button class="knop" data-actie="zoom-alles">Alles in beeld</button></div>`;
+}
+
+/* ------------------------------------------------------------------ *
+ * Gebeurtenissen
+ * ------------------------------------------------------------------ */
+function eersteSelectieComponent() {
+  return store.ui.selectie.map((id) => store.component(id)).filter(Boolean);
+}
+
+function bindPanelen() {
+  for (const paneel of [links(), rechts()]) {
+    paneel.addEventListener('click', klik);
+    paneel.addEventListener('change', wijzig);
+    paneel.addEventListener('input', invoer);
+  }
+}
+
+function klik(e) {
+  const knop = e.target.closest('[data-actie]');
+  if (!knop) return;
+  const actie = knop.dataset.actie;
+  const id = knop.dataset.id;
+
+  switch (actie) {
+    case 'tool':
+      store.setUI({ tool: knop.dataset.tool, bezigPolygoon: null, verbindBron: null });
+      break;
+    case 'plaats-type':
+      store.setUI({ tool: 'plaats', plaatsType: knop.dataset.type });
+      break;
+    case 'selecteer':
+      store.selecteer(id);
+      break;
+    case 'selecteer-type': {
+      const ids = store.project.componenten.filter((c) => c.type === knop.dataset.type).map((c) => c.id);
+      store.selecteer(ids);
+      break;
+    }
+    case 'selecteer-inhoud': {
+      const r = store.ruimte(store.ui.selectie[0]);
+      if (r) store.selecteer(store.project.componenten.filter((c) => c.ruimteId === r.id).map((c) => c.id));
+      break;
+    }
+    case 'sluit-polygoon': planvlak && planvlak.sluitPolygoon(); break;
+    case 'stop-polygoon': store.setUI({ bezigPolygoon: null }); break;
+    case 'nieuwe-kring':
+      store.commit('kring toegevoegd', (p) => { const k = maakKring(p); store.ui.actieveKring = k.id; store.ui.tool = 'kringverf'; });
+      break;
+    case 'verwijder-kring':
+      store.commit('kring verwijderd', (p) => verwijderKring(p, id));
+      if (store.ui.actieveKring === id) store.setUI({ actieveKring: null, tool: 'select' });
+      break;
+    case 'kies-kring': {
+      if (e.target.closest('select, button[data-actie="verwijder-kring"]')) return;
+      const zelfde = store.ui.actieveKring === id;
+      store.setUI({ actieveKring: zelfde ? null : id, tool: zelfde ? 'select' : 'kringverf' });
+      break;
+    }
+    case 'stop-toewijzen': store.setUI({ actieveKring: null, tool: 'select' }); break;
+    case 'auto-verdeel':
+      if (!store.project.componenten.length) { alert('Plaats eerst componenten in stap 2.'); return; }
+      if (store.project.kringen.length && !confirm('De bestaande kringindeling wordt vervangen. Doorgaan?')) return;
+      store.commit('automatisch verdeeld', (p) => { autoVerdeel(p); });
+      break;
+    case 'nieuw-differentieel':
+      store.commit('differentieel toegevoegd', (p) => {
+        p.differentiëlen.push({ id: uid('dif'), naam: 'Differentieel', gevoeligheid: 30, amp: 40, type: 'A' });
+      });
+      break;
+    case 'verwijder-differentieel':
+      store.commit('differentieel verwijderd', (p) => {
+        p.differentiëlen = p.differentiëlen.filter((d) => d.id !== id);
+        for (const k of p.kringen) if (k.differentieelId === id) k.differentieelId = p.differentiëlen[0]?.id || null;
+      });
+      break;
+    case 'toon-melding': {
+      const ids = (knop.dataset.ids || '').split(',').filter(Boolean);
+      store.selecteer(ids);
+      break;
+    }
+    case 'verwijder-selectie': verwijderSelectie(); break;
+    case 'dupliceer': dupliceerSelectie(); break;
+    case 'verwijder-verbinding':
+      store.commit('verbinding verwijderd', (p) => { p.verbindingen = p.verbindingen.filter((v) => v.id !== id); });
+      break;
+    case 'zoom-alles': planvlak && planvlak.zoomNaarAlles(); break;
+    default: break;
+  }
+}
+
+function invoer(e) {
+  const veld = e.target.closest('[data-actie]');
+  if (!veld) return;
+  const actie = veld.dataset.actie;
+  const waarde = veld.value;
+
+  if (actie === 'zoek') { store.setUI({ zoek: waarde }); return; }
+  if (actie === 'comp-rot') {
+    const comps = eersteSelectieComponent();
+    for (const c of comps) c.rot = Number(waarde);
+    store.bewaar();
+    store.emit('project-licht');
+    return;
+  }
+  const tekstVelden = {
+    'comp-label': (c) => { c.label = waarde; },
+    'comp-opmerking': (c) => { c.opmerking = waarde; },
+  };
+  if (tekstVelden[actie]) {
+    for (const c of eersteSelectieComponent()) tekstVelden[actie](c);
+    store.bewaar();
+    return;
+  }
+  if (actie === 'ruimte-naam') {
+    const r = store.ruimte(store.ui.selectie[0]);
+    if (r) { r.naam = waarde; store.bewaar(); store.emit('project-licht'); }
+    return;
+  }
+  if (actie === 'kring-naam') {
+    const k = store.kring(veld.dataset.id);
+    if (k) { k.naam = waarde; store.bewaar(); }
+    return;
+  }
+  if (actie === 'dif-naam') {
+    const d = store.differentieel(veld.dataset.id);
+    if (d) { d.naam = waarde; store.bewaar(); }
+    return;
+  }
+  if (actie === 'prj-naam') { store.project.naam = waarde; store.bewaar(); document.title = waarde + ' — Elek'; return; }
+  if (actie === 'prj-klant') { store.project.klant = waarde; store.bewaar(); return; }
+  if (actie === 'prj-adres') { store.project.adres = waarde; store.bewaar(); return; }
+}
+
+function wijzig(e) {
+  const veld = e.target.closest('[data-actie]');
+  if (!veld) return;
+  const actie = veld.dataset.actie;
+  const waarde = veld.value;
+  const id = veld.dataset.id;
+  const comps = eersteSelectieComponent();
+
+  switch (actie) {
+    case 'ui':
+      store.setUI({ [veld.dataset.veld]: veld.checked });
+      break;
+    case 'nieuwe-ruimte-type':
+      store.setUI({ nieuweRuimteType: waarde });
+      break;
+    case 'raster':
+      store.commit('raster gewijzigd', (p) => { p.plan.raster = Number(waarde); });
+      break;
+    case 'comp-kring':
+      store.commit('kring toegewezen', () => { for (const c of comps) c.kringId = waarde || null; });
+      break;
+    case 'bulk-kring':
+      store.commit('kringen toegewezen', () => { for (const c of comps) c.kringId = waarde || null; });
+      break;
+    case 'comp-type':
+      store.commit('type gewijzigd', () => {
+        for (const c of comps) {
+          c.type = waarde;
+          const d = def(waarde);
+          c.hoogte = d.hoogte ?? null;
+          c.watt = d.watt ?? null;
+        }
+      });
+      break;
+    case 'comp-hoogte':
+      store.commit('hoogte gewijzigd', () => { for (const c of comps) c.hoogte = waarde === '' ? null : Number(waarde); });
+      break;
+    case 'comp-watt':
+      store.commit('vermogen gewijzigd', () => { for (const c of comps) c.watt = waarde === '' ? null : Number(waarde); });
+      break;
+    case 'ruimte-type':
+      store.commit('ruimtetype gewijzigd', () => {
+        const r = store.ruimte(store.ui.selectie[0]);
+        if (r) { r.type = waarde; r.kleur = ruimteDef(waarde).kleur; if (!r.naam) r.naam = ruimteDef(waarde).naam; }
+      });
+      break;
+    case 'ruimte-kleur':
+      store.commit('kleur gewijzigd', () => { const r = store.ruimte(store.ui.selectie[0]); if (r) r.kleur = waarde; });
+      break;
+    case 'ruimte-muurdikte':
+      store.commit('muurdikte gewijzigd', () => { const r = store.ruimte(store.ui.selectie[0]); if (r) r.muurdikte = Number(waarde); });
+      break;
+    case 'dif-gevoelig':
+      store.commit('differentieel gewijzigd', () => { const d = store.differentieel(id); if (d) d.gevoeligheid = Number(waarde); });
+      break;
+    case 'dif-amp':
+      store.commit('differentieel gewijzigd', () => { const d = store.differentieel(id); if (d) d.amp = Number(waarde); });
+      break;
+    case 'prj-fasen':
+      store.commit('aansluiting gewijzigd', (p) => { p.net.fasen = Number(waarde); p.net.spanning = Number(waarde) === 3 ? 400 : 230; });
+      break;
+    case 'prj-hoofd':
+      store.commit('hoofdzekering gewijzigd', (p) => { p.net.hoofdzekering = Number(waarde); });
+      break;
+    case 'kring-amp':
+      store.commit('automaat gewijzigd', () => {
+        const k = store.kring(id);
+        if (k) { k.amp = Number(waarde); if (minSectieVoor(k.amp) > k.mm2) k.mm2 = minSectieVoor(k.amp); }
+      });
+      break;
+    case 'kring-mm2':
+      store.commit('sectie gewijzigd', () => { const k = store.kring(id); if (k) k.mm2 = Number(waarde); });
+      break;
+    case 'kring-type':
+      store.commit('kringtype gewijzigd', () => {
+        const k = store.kring(id);
+        if (!k) return;
+        k.type = waarde;
+        const sj = KRINGSJABLOON[waarde];
+        if (sj) { k.amp = sj.amp; k.mm2 = sj.mm2; }
+      });
+      break;
+    case 'kring-dif':
+      store.commit('differentieel gekozen', () => { const k = store.kring(id); if (k) k.differentieelId = waarde || null; });
+      break;
+    default: break;
+  }
+}
+
+function verwijderSelectie() {
+  const ids = new Set(store.ui.selectie);
+  if (!ids.size) return;
+  store.commit('verwijderd', (p) => {
+    p.componenten = p.componenten.filter((c) => !ids.has(c.id));
+    p.plan.ruimtes = p.plan.ruimtes.filter((r) => !ids.has(r.id));
+    p.plan.muren = p.plan.muren.filter((m) => !ids.has(m.id));
+    p.verbindingen = p.verbindingen.filter((v) => !ids.has(v.van) && !ids.has(v.naar));
+  });
+  store.selecteer([]);
+}
+
+function dupliceerSelectie() {
+  const comps = eersteSelectieComponent();
+  if (!comps.length) return;
+  const nieuweIds = [];
+  store.commit('gedupliceerd', (p) => {
+    for (const c of comps) {
+      const kopie = { ...c, id: uid('cmp'), x: c.x + 0.3, y: c.y + 0.3 };
+      p.componenten.push(kopie);
+      nieuweIds.push(kopie.id);
+    }
+  });
+  store.selecteer(nieuweIds);
+}
+
+/* ---- exporters.js ---- */
+// Opslaan, openen, afbeelding exporteren en afdrukken.
+
+
+
+
+
+
+// Vaste kleuren voor export en afdruk (altijd licht, ook in donkere modus).
+const EXPORT_KLEUREN = {
+  '--sym-fill': '#ffffff',
+  '--muur': '#111827',
+  '--symbool': '#111827',
+  '--accent': '#2563eb',
+  '--geen-kring': '#9ca3af',
+  '--tekst-plan': '#374151',
+  '--tekst-plan-zacht': '#6b7280',
+  '--verbinding': '#9ca3af',
+  '--raster-groot': '#e5e7eb',
+  '--raster-fijn': '#f3f4f6',
+  '--vlak': '#ffffff',
+  '--tekst': '#111827',
+  '--tekst-zacht': '#6b7280',
+  '--fout': '#dc2626',
+};
+
+function kleurStijl() {
+  return Object.entries(EXPORT_KLEUREN).map(([k, v]) => `${k}:${v}`).join(';');
+}
+
+/** Bounding box van alles wat op het plan staat, inclusief marge. */
+function planOmhullende(marge = 0.8) {
+  const p = store.project;
+  const punten = [];
+  for (const r of p.plan.ruimtes) punten.push(...r.punten);
+  for (const m of p.plan.muren) punten.push(m.a, m.b);
+  for (const c of p.componenten) punten.push({ x: c.x, y: c.y });
+  const box = omhullende(punten) || { x1: 0, y1: 0, x2: 10, y2: 8 };
+  return {
+    x: box.x1 - marge,
+    y: box.y1 - marge,
+    w: Math.max(1, (box.x2 - box.x1) + marge * 2),
+    h: Math.max(1, (box.y2 - box.y1) + marge * 2),
+  };
+}
+
+/** Losstaande SVG van het situatieschema. */
+function planSVG(canvas, { pxPerMeter = 80, titel = true } = {}) {
+  const vb = planOmhullende();
+  const bewaardeZoom = canvas.view.zoom;
+  canvas.view.zoom = pxPerMeter;
+  const inhoud = canvas.bouw({ vb, voorExport: true });
+  canvas.view.zoom = bewaardeZoom;
+
+  const p = store.project;
+  const kopHoogte = titel ? 0.9 : 0;
+  const w = vb.w * pxPerMeter;
+  const h = (vb.h + kopHoogte) * pxPerMeter;
+  let s = `<svg xmlns="http://www.w3.org/2000/svg" width="${Math.round(w)}" height="${Math.round(h)}" ` +
+    `viewBox="${vb.x} ${vb.y - kopHoogte} ${vb.w} ${vb.h + kopHoogte}" style="${kleurStijl()}">`;
+  s += `<rect x="${vb.x}" y="${vb.y - kopHoogte}" width="${vb.w}" height="${vb.h + kopHoogte}" fill="#ffffff"/>`;
+  if (titel) {
+    s += `<text x="${vb.x + 0.2}" y="${vb.y - kopHoogte + 0.45}" font-size="0.36" font-weight="700" ` +
+      `font-family="system-ui, sans-serif" fill="#111827">${escape(p.naam || 'Situatieschema')}</text>`;
+    const onder = [p.klant, p.adres, new Date().toLocaleDateString('nl-BE')].filter(Boolean).join(' · ');
+    s += `<text x="${vb.x + 0.2}" y="${vb.y - kopHoogte + 0.78}" font-size="0.22" ` +
+      `font-family="system-ui, sans-serif" fill="#6b7280">${escape(onder)}</text>`;
+  }
+  s += inhoud;
+  s += '</svg>';
+  return s;
+}
+
+function bewaarBlob(blob, bestandsnaam) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  if ('download' in a) {
+    a.href = url;
+    a.download = bestandsnaam;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  } else {
+    window.open(url, '_blank');
+  }
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+}
+
+function veiligeNaam(naam) {
+  return (naam || 'project').replace(/[^a-z0-9\- _]/gi, '').trim().replace(/\s+/g, '-') || 'project';
+}
+
+/* ------------------------------------------------------------------ *
+ * Projectbestand
+ * ------------------------------------------------------------------ */
+function exporteerProject() {
+  const data = JSON.stringify(store.project, null, 2);
+  bewaarBlob(new Blob([data], { type: 'application/json' }), `${veiligeNaam(store.project.naam)}.elek.json`);
+}
+
+function importeerProject(bestand) {
+  return new Promise((klaar, fout) => {
+    const lezer = new FileReader();
+    lezer.onload = () => {
+      try {
+        const data = migreer(JSON.parse(String(lezer.result)));
+        store.vervangProject(data, 'project geopend');
+        klaar(data);
+      } catch (e) { fout(e); }
+    };
+    lezer.onerror = () => fout(lezer.error);
+    lezer.readAsText(bestand);
+  });
+}
+
+/* ------------------------------------------------------------------ *
+ * Afbeeldingen
+ * ------------------------------------------------------------------ */
+function exporteerSVG(canvas) {
+  const s = planSVG(canvas);
+  bewaarBlob(new Blob([s], { type: 'image/svg+xml' }), `${veiligeNaam(store.project.naam)}-situatieschema.svg`);
+}
+
+function exporteerPNG(canvas, schaal = 2) {
+  const svgTekst = planSVG(canvas);
+  const blob = new Blob([svgTekst], { type: 'image/svg+xml;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const img = new Image();
+  img.onload = () => {
+    const c = document.createElement('canvas');
+    c.width = img.width * schaal;
+    c.height = img.height * schaal;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, c.width, c.height);
+    ctx.drawImage(img, 0, 0, c.width, c.height);
+    c.toBlob((png) => {
+      if (png) bewaarBlob(png, `${veiligeNaam(store.project.naam)}-situatieschema.png`);
+      URL.revokeObjectURL(url);
+    }, 'image/png');
+  };
+  img.onerror = () => {
+    URL.revokeObjectURL(url);
+    alert('De afbeelding kon niet gemaakt worden. Probeer de SVG-export.');
+  };
+  img.src = url;
+}
+
+/* ------------------------------------------------------------------ *
+ * Afdrukken
+ * ------------------------------------------------------------------ */
+function drukAf(canvas) {
+  const p = store.project;
+  const vlak = document.getElementById('print-vlak');
+  const datum = new Date().toLocaleDateString('nl-BE');
+  vlak.innerHTML = `
+    <div class="print-blad">
+      <h1>${escape(p.naam || 'Elektrisch dossier')}</h1>
+      <p class="print-meta">${[p.klant, p.adres].filter(Boolean).map(escape).join(' · ')} ${p.klant || p.adres ? '·' : ''} ${datum}</p>
+      <h2>Situatieschema</h2>
+      <div class="print-plan">${planSVG(canvas, { pxPerMeter: 70, titel: false })}</div>
+    </div>
+    <div class="print-blad">
+      <h2>Verdeelbord</h2>
+      <div class="print-bord" style="${kleurStijl()}">${bouwBordSVG(p)}</div>
+    </div>
+    <div class="print-blad">
+      <h2>Componenten per zekering</h2>
+      <div class="print-lijst">${bouwBordTabel(p)}</div>
+      <p class="print-voet">Opgemaakt met Elek · ${datum} · controle op basis van gangbare AREI-vuistregels.</p>
+    </div>`;
+  document.body.classList.add('afdrukken');
+  const opruimen = () => {
+    document.body.classList.remove('afdrukken');
+    vlak.innerHTML = '';
+    window.removeEventListener('afterprint', opruimen);
+  };
+  window.addEventListener('afterprint', opruimen);
+  setTimeout(() => window.print(), 60);
+}
+
+/* ---- app.js ---- */
+// Opstart, werkbalk, sneltoetsen en samenspel tussen plan, panelen en bord.
+
+
+
+
+
+
+
+
+const $ = (sel) => document.querySelector(sel);
+let canvas;
+
+function start() {
+  canvas = new PlanCanvas($('#plan'));
+  koppelCanvas(canvas);
+  bindPanelen();
+  bindWerkbalk();
+  bindToetsen();
+
+  store.on((reden) => {
+    canvas.plan();
+    if (reden === 'project-licht') return;
+    tekenLinks();
+    tekenRechts();
+    if (store.ui.weergave === 'bord') tekenBord();
+    werkbalkBij();
+  });
+
+  document.addEventListener('elek:bewerk', () => {
+    document.body.classList.add('rechts-open');
+  });
+
+  tekenLinks();
+  tekenRechts();
+  werkbalkBij();
+  canvas.zoomNaarAlles();
+  document.title = (store.project.naam || 'Elek') + ' — Elek';
+  if (!store.project.plan.ruimtes.length && !store.project.componenten.length) toonWelkom();
+  registreerServiceWorker();
+}
+
+/* ------------------------------------------------------------------ *
+ * Werkbalk
+ * ------------------------------------------------------------------ */
+function bindWerkbalk() {
+  document.body.addEventListener('click', (e) => {
+    const knop = e.target.closest('[data-app]');
+    if (!knop) return;
+    const actie = knop.dataset.app;
+    switch (actie) {
+      case 'stap':
+        zetStap(Number(knop.dataset.stap));
+        break;
+      case 'weergave':
+        zetWeergave(knop.dataset.weergave);
+        break;
+      case 'undo': store.undo(); break;
+      case 'redo': store.redo(); break;
+      case 'zoom-in': canvas.zoomNaar(1.25); break;
+      case 'zoom-uit': canvas.zoomNaar(0.8); break;
+      case 'zoom-alles': canvas.zoomNaarAlles(); break;
+      case 'nieuw':
+        if (confirm('Nieuw project starten? Het huidige project wordt uit dit venster gewist (exporteer het eerst als je het wil bewaren).')) {
+          store.vervangProject(nieuwProject('Nieuw project'), 'nieuw project');
+          canvas.zoomNaarAlles();
+        }
+        break;
+      case 'open': $('#bestand-invoer').click(); break;
+      case 'bewaar': exporteerProject(); break;
+      case 'png': exporteerPNG(canvas); break;
+      case 'svg': exporteerSVG(canvas); break;
+      case 'print': drukAf(canvas); break;
+      case 'menu': document.body.classList.toggle('menu-open'); break;
+      case 'links': document.body.classList.toggle('links-open'); break;
+      case 'rechts': document.body.classList.toggle('rechts-open'); break;
+      case 'sluit-paneel':
+        document.body.classList.remove('links-open', 'rechts-open', 'menu-open');
+        break;
+      case 'voorbeeld': laadVoorbeeld(); break;
+      case 'sluit-welkom': $('#welkom').close(); break;
+      case 'help': $('#help').showModal(); break;
+      case 'sluit-help': $('#help').close(); break;
+      default: break;
+    }
+    if (knop.dataset.app !== 'menu') document.body.classList.remove('menu-open');
+  });
+
+  $('#bestand-invoer').addEventListener('change', async (e) => {
+    const bestand = e.target.files[0];
+    if (!bestand) return;
+    try {
+      await importeerProject(bestand);
+      canvas.zoomNaarAlles();
+    } catch (err) {
+      alert('Dit bestand kon niet gelezen worden: ' + err.message);
+    }
+    e.target.value = '';
+  });
+}
+
+function zetStap(stap) {
+  const patch = { stap, tool: 'select', bezigPolygoon: null, verbindBron: null };
+  if (stap !== 3) patch.actieveKring = null;
+  if (stap === 1) patch.tool = 'select';
+  store.setUI(patch);
+  if (store.ui.weergave === 'bord' && stap !== 3) zetWeergave('plan');
+  tekenLinks();
+  tekenRechts();
+  werkbalkBij();
+  canvas.render();
+}
+
+function zetWeergave(weergave) {
+  store.ui.weergave = weergave;
+  $('#werkvlak').classList.toggle('toon-bord', weergave === 'bord');
+  if (weergave === 'bord') tekenBord();
+  werkbalkBij();
+  canvas.render();
+}
+
+function werkbalkBij() {
+  for (const knop of document.querySelectorAll('[data-app="stap"]')) {
+    knop.classList.toggle('actief', Number(knop.dataset.stap) === store.ui.stap);
+  }
+  for (const knop of document.querySelectorAll('[data-app="weergave"]')) {
+    knop.classList.toggle('actief', knop.dataset.weergave === store.ui.weergave);
+  }
+  $('[data-app="undo"]').disabled = !store.kanUndo();
+  $('[data-app="redo"]').disabled = !store.kanRedo();
+  $('#projectnaam').textContent = store.project.naam || 'Zonder naam';
+}
+
+function tekenBord() {
+  $('#bord-schema').innerHTML = bouwBordSVG(store.project);
+  $('#bord-lijst').innerHTML = bouwBordTabel(store.project);
+}
+
+/* ------------------------------------------------------------------ *
+ * Sneltoetsen
+ * ------------------------------------------------------------------ */
+function bindToetsen() {
+  window.addEventListener('keydown', (e) => {
+    const inVeld = e.target.matches('input, textarea, select');
+    const meta = e.ctrlKey || e.metaKey;
+
+    if (meta && e.key.toLowerCase() === 'z') {
+      e.preventDefault();
+      e.shiftKey ? store.redo() : store.undo();
+      return;
+    }
+    if (meta && e.key.toLowerCase() === 's') { e.preventDefault(); exporteerProject(); return; }
+    if (meta && e.key.toLowerCase() === 'p') { e.preventDefault(); drukAf(canvas); return; }
+    if (meta && e.key.toLowerCase() === 'd') { e.preventDefault(); dupliceerSelectie(); return; }
+    if (inVeld) return;
+
+    switch (e.key) {
+      case 'Escape':
+        store.setUI({ tool: 'select', bezigPolygoon: null, verbindBron: null, actieveKring: null });
+        store.selecteer([]);
+        document.body.classList.remove('links-open', 'rechts-open', 'menu-open');
+        break;
+      case 'Delete': case 'Backspace':
+        e.preventDefault(); verwijderSelectie(); break;
+      case 'Enter':
+        if (store.ui.bezigPolygoon) canvas.sluitPolygoon();
+        break;
+      case '1': zetStap(1); break;
+      case '2': zetStap(2); break;
+      case '3': zetStap(3); break;
+      case 'r': case 'R': draaiSelectie(e.shiftKey ? -45 : 45); break;
+      case '+': case '=': canvas.zoomNaar(1.25); break;
+      case '-': canvas.zoomNaar(0.8); break;
+      case '0': canvas.zoomNaarAlles(); break;
+      case 'ArrowLeft': case 'ArrowRight': case 'ArrowUp': case 'ArrowDown': {
+        const comps = store.ui.selectie.map((id) => store.component(id)).filter(Boolean);
+        if (!comps.length) return;
+        e.preventDefault();
+        const stap = e.shiftKey ? store.project.plan.raster * 4 : store.project.plan.raster;
+        const dx = e.key === 'ArrowLeft' ? -stap : e.key === 'ArrowRight' ? stap : 0;
+        const dy = e.key === 'ArrowUp' ? -stap : e.key === 'ArrowDown' ? stap : 0;
+        store.commit('verplaatst', () => {
+          for (const c of comps) { c.x = +(c.x + dx).toFixed(3); c.y = +(c.y + dy).toFixed(3); }
+          canvas.herberekenRuimtes();
+        });
+        break;
+      }
+      default: break;
+    }
+  });
+}
+
+function draaiSelectie(hoek) {
+  const comps = store.ui.selectie.map((id) => store.component(id)).filter(Boolean);
+  if (!comps.length) return;
+  store.commit('gedraaid', () => {
+    for (const c of comps) c.rot = ((c.rot || 0) + hoek + 360) % 360;
+  });
+}
+
+/* ------------------------------------------------------------------ *
+ * Voorbeeldproject
+ * ------------------------------------------------------------------ */
+function toonWelkom() {
+  const dlg = $('#welkom');
+  if (dlg && !dlg.open) dlg.showModal();
+}
+
+const VOORBEELD_RUIMTES = [
+  { naam: 'Living', type: 'living', box: [0, 0, 5, 4.5] },
+  { naam: 'Keuken', type: 'keuken', box: [5, 0, 9, 4.5] },
+  { naam: 'Hal', type: 'hal', box: [0, 4.5, 3, 7] },
+  { naam: 'Badkamer', type: 'badkamer', box: [3, 4.5, 5.5, 7] },
+  { naam: 'Slaapkamer', type: 'slaapkamer', box: [5.5, 4.5, 9, 7] },
+];
+
+const VOORBEELD_COMPONENTEN = [
+  ['lichtpunt', 2.5, 2.2], ['lichtpunt', 7, 2.2], ['lichtpunt', 1.5, 5.7],
+  ['lichtpunt', 4.2, 5.7], ['lichtpunt', 7.2, 5.7],
+  ['schak2', 0.2, 4.2], ['wissel', 4.8, 4.2], ['schak1', 5.2, 4.2],
+  ['schak1', 3.2, 4.7], ['schak1', 5.7, 4.7],
+  ['sc2', 1.2, 0.05], ['sc2', 3.6, 0.05], ['sc2', 0.05, 2.5], ['sc2', 4.95, 1.4],
+  ['scwerkblad', 6.2, 0.05], ['scwerkblad', 7.6, 0.05],
+  ['sc2', 6.2, 4.45], ['sc2', 8.4, 5.2], ['sc2', 5.6, 6.5],
+  ['scwd', 3.2, 6.9], ['sc2', 0.05, 6],
+  ['kookplaat', 6.8, 0.05], ['oven', 8.6, 0.6], ['vaatwas', 5.4, 0.05],
+  ['wasmachine', 5.05, 6.4], ['boiler', 4.2, 6.9],
+  ['koelkast', 8.95, 2.2], ['dampkap', 6.8, 0.4],
+  ['utp', 2.2, 0.05], ['coax', 2.6, 0.05], ['rookmelder', 1.5, 5.2],
+  ['verdeelbord', 0.05, 5.4], ['teller', 0.05, 4.9],
+];
+
+function laadVoorbeeld() {
+  const p = nieuwProject('Voorbeeldwoning');
+  for (const r of VOORBEELD_RUIMTES) {
+    const [x1, y1, x2, y2] = r.box;
+    p.plan.ruimtes.push({
+      id: uid('rmt'), naam: r.naam, type: r.type,
+      punten: [{ x: x1, y: y1 }, { x: x2, y: y1 }, { x: x2, y: y2 }, { x: x1, y: y2 }],
+      kleur: null, muurdikte: 0.09, niveauId: p.plan.niveaus[0].id,
+    });
+  }
+  store.vervangProject(p, 'voorbeeld geladen');
+
+  // Componenten plaatsen met muur-snap en ruimtetoewijzing
+  store.commit('voorbeeld ingevuld', (prj) => {
+    for (const [type, x, y] of VOORBEELD_COMPONENTEN) {
+      const d = def(type);
+      const pos = canvas.plaatsPositie({ x, y }, type);
+      const ruimte = canvas.ruimteOp({ x: pos.x, y: pos.y }) || canvas.dichtstbijzijndeRuimte({ x: pos.x, y: pos.y });
+      prj.componenten.push({
+        id: uid('cmp'), type, x: pos.x, y: pos.y, rot: pos.rot, label: '',
+        ruimteId: ruimte ? ruimte.id : null, kringId: null,
+        hoogte: d.hoogte ?? null, watt: d.watt ?? null, opmerking: '',
+      });
+    }
+    autoVerdeel(prj);
+  });
+
+  const dlg = $('#welkom');
+  if (dlg && dlg.open) dlg.close();
+  zetStap(1);
+  canvas.zoomNaarAlles();
+}
+
+/* ------------------------------------------------------------------ *
+ * PWA
+ * ------------------------------------------------------------------ */
+function registreerServiceWorker() {
+  if (!('serviceWorker' in navigator)) return;
+  if (location.protocol === 'file:') return;
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch((e) => console.warn('Service worker:', e));
+  });
+}
+
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
+else start();
+</script>
+</body>
+</html>

@@ -15,6 +15,28 @@ nodig: je project blijft op het toestel staan.
 
 ## Openen en installeren
 
+Er zijn twee manieren. De eerste is de snelste, de tweede geeft een echte
+app met eigen icoon die offline werkt.
+
+### 1. Eén bestand, zonder installatie
+
+`elek-eenbestand.html` bevat de volledige app in één bestand. Download het
+(op GitHub: het bestand openen → *Download raw file*) en open het:
+
+* **Windows**: dubbelklik het bestand; het opent in je browser.
+* **iPad**: bewaar het in *Bestanden* en tik erop (of *Deel → Openen in Safari*).
+
+Geen server, geen installatie. Je project wordt bewaard in de browser waarin je
+het bestand opent; met *Project opslaan* maak je er een `.json`-bestand van.
+
+Dit bestand wordt gemaakt uit de gewone bronbestanden:
+
+```bash
+python3 tools/bouw-eenbestand.py
+```
+
+### 2. Als app op Windows en iPad (aanrader)
+
 De app is een gewone statische website. Zet de map op een webserver (of gebruik
 GitHub Pages) en open `index.html`.
 
@@ -116,6 +138,7 @@ Geen bouwstap, geen dependencies — alleen ES-modules die de browser zelf laadt
 | `js/board.js` | verdeelbord en lijst per zekering |
 | `js/exporters.js` | JSON, PNG, SVG en afdrukken |
 | `sw.js` | service worker voor offline gebruik |
+| `tools/bouw-eenbestand.py` | bouwt `elek-eenbestand.html` (alles in één bestand) |
 
 ## Voorbehoud
 

@@ -14,8 +14,8 @@ import {
 } from './circuits.js';
 import { oppervlakte } from './geometry.js';
 
-let canvas = null;
-export function koppelCanvas(c) { canvas = c; }
+let planvlak = null;
+export function koppelCanvas(c) { planvlak = c; }
 
 const links = () => document.getElementById('paneel-links');
 const rechts = () => document.getElementById('paneel-rechts');
@@ -380,7 +380,7 @@ function klik(e) {
       if (r) store.selecteer(store.project.componenten.filter((c) => c.ruimteId === r.id).map((c) => c.id));
       break;
     }
-    case 'sluit-polygoon': canvas && canvas.sluitPolygoon(); break;
+    case 'sluit-polygoon': planvlak && planvlak.sluitPolygoon(); break;
     case 'stop-polygoon': store.setUI({ bezigPolygoon: null }); break;
     case 'nieuwe-kring':
       store.commit('kring toegevoegd', (p) => { const k = maakKring(p); store.ui.actieveKring = k.id; store.ui.tool = 'kringverf'; });
@@ -422,7 +422,7 @@ function klik(e) {
     case 'verwijder-verbinding':
       store.commit('verbinding verwijderd', (p) => { p.verbindingen = p.verbindingen.filter((v) => v.id !== id); });
       break;
-    case 'zoom-alles': canvas && canvas.zoomNaarAlles(); break;
+    case 'zoom-alles': planvlak && planvlak.zoomNaarAlles(); break;
     default: break;
   }
 }
