@@ -77,6 +77,10 @@ service worker.
 * **Deuren, ramen, doorgangen, een garagepoort en een trap** klik je in de muur;
   ze snijden de muur open en worden op ware breedte getekend. Breedte en diepte
   pas je rechts aan.
+* **Een bestaand plan overtekenen**: via *Menu → Grondplan importeren* laad je een
+  foto of scan als onderlaag. Zet de breedte gelijk aan een maat die je op het
+  plan kent, sleep de afbeelding op haar plaats, vergrendel ze en teken erover.
+  De afbeelding wordt verkleind opgeslagen en gaat mee in het projectbestand.
 * Sleep een geselecteerde ruimte om ze te verplaatsen (de componenten erin gaan
   mee); sleep de hoekpunten om ze te vervormen. Voor een rechthoekige ruimte kan
   je rechts de **exacte breedte en diepte** invullen.

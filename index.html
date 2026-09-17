@@ -53,6 +53,7 @@
     <button data-app="bord-svg">Eendraadschema als SVG</button>
     <button data-app="print">Afdrukken / PDF</button>
     <hr>
+    <button data-app="onderlaag">Grondplan importeren (foto of scan)…</button>
     <button data-app="voorbeeld">Voorbeeldwoning laden</button>
     <button data-app="legende">Symbolenlegende (AREI)</button>
     <button data-app="help">Uitleg &amp; sneltoetsen</button>
@@ -96,6 +97,7 @@
 </main>
 
 <input type="file" id="bestand-invoer" accept=".json,application/json" hidden>
+<input type="file" id="onderlaag-invoer" accept="image/*" hidden>
 <div id="print-vlak" class="print-vlak"></div>
 
 <dialog id="welkom" class="dialoog">
@@ -103,7 +105,8 @@
   <p>Maak het elektrisch dossier van een woning in drie stappen:</p>
   <ol class="stappen-uitleg">
     <li><strong>Plattegrond</strong> — teken de ruimtes van de woning.</li>
-    <li><strong>Componenten</strong> — plaats lichtpunten, schakelaars, stopcontacten en toestellen.</li>
+    <li><strong>Componenten</strong> — plaats lichtpunten, schakelaars, stopcontacten en toestellen met de
+      AREI-symbolen.</li>
     <li><strong>Kringen</strong> — bepaal per component op welke zekering hij komt en bekijk het verdeelbord.</li>
   </ol>
   <div class="dialoog-knoppen">
@@ -127,9 +130,21 @@
   <h2>Uitleg &amp; sneltoetsen</h2>
   <h3>Werkwijze</h3>
   <ul>
-    <li><strong>Stap 1:</strong> kies “Ruimte” en sleep een rechthoek, of “Vorm” en klik punt per punt (dubbelklik of Enter sluit de vorm). Sleep een geselecteerde ruimte om ze te verplaatsen; sleep de hoekpunten om ze te vervormen.</li>
-    <li><strong>Stap 2:</strong> kies een symbool in het palet en klik op het plan. Schakelaars en stopcontacten klikken automatisch tegen de dichtstbijzijnde muur. Met “Verbinden” koppel je een schakelaar aan het lichtpunt dat hij bedient.</li>
-    <li><strong>Stap 3:</strong> klik “Automatisch verdelen” voor een voorstel, of maak zelf kringen en klik componenten aan om ze toe te wijzen. De controlelijst waarschuwt voor te veel punten per kring, een te zware automaat of een ontbrekend differentieel van 30 mA.</li>
+    <li><strong>Stap 1:</strong> “Ruimte” klikt twee hoeken, “Vorm” klikt punt per punt (Enter of een klik op het
+      eerste punt sluit de vorm). Tijdens het tekenen zie je de lengte en de hoek; richtingen springen op 45°
+      zodat lijnen recht blijven, met <kbd>Alt</kbd> teken je vrij. Typ een lengte in meter en druk <kbd>Enter</kbd>
+      voor een exacte maat. Hoekpunten van bestaande ruimtes trekken aan, zodat kamers netjes aansluiten.
+      Deuren, ramen, een doorgang, een garagepoort en een trap klik je in de muur.</li>
+    <li><strong>Grondplan importeren:</strong> via het menu laad je een foto of scan van een bestaand plan als
+      onderlaag. Zet de breedte gelijk aan een maat die je kent, vergrendel de afbeelding en teken erover.</li>
+    <li><strong>Stap 2:</strong> kies een symbool in het palet en klik op het plan. Schakelaars en stopcontacten
+      klikken automatisch tegen de dichtstbijzijnde muur en draaien mee. Met “Verbinden” koppel je een schakelaar
+      aan het lichtpunt dat hij bedient.</li>
+    <li><strong>Stap 3:</strong> klik “Automatisch verdelen” voor een voorstel, of maak zelf kringen en klik
+      componenten aan om ze toe te wijzen. De controlelijst waarschuwt voor te veel punten per kring, een te
+      zware automaat of een ontbrekend differentieel van 30 mA.</li>
+    <li><strong>Verdeelbord:</strong> het tabblad toont het eendraadschema van aardelektrode, teller en
+      hoofdautomaat over de differentiëlen tot elke kring, met de symbolen van alle toestellen in de lijn.</li>
   </ul>
   <h3>Sneltoetsen</h3>
   <ul class="toetsen">
@@ -145,6 +160,9 @@
   </ul>
   <h3>Op iPad</h3>
   <p>Eén vinger sleept het plan, twee vingers zoomen. Tik een component aan om hem te selecteren en sleep hem naar de juiste plaats. Installeer de app via <em>Deel → Zet op beginscherm</em>.</p>
+  <h3>Symbolen</h3>
+  <p>De symbolen volgen AREI Boek 1, tabel 2.23. Via <em>Menu → Symbolenlegende</em> zie je ze allemaal met hun
+    naam; die lijst kan je ook afdrukken.</p>
   <p class="voetnoot">De controles zijn gangbare AREI-vuistregels en vervangen geen keuring door een erkend organisme.</p>
   <div class="dialoog-knoppen"><button class="knop primair" data-app="sluit-help">Sluiten</button></div>
 </dialog>

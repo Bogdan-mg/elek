@@ -223,6 +223,7 @@ export function nieuwProject(naam = 'Nieuw project') {
       schaal: 1,           // meters per planeenheid (altijd 1, ruimte voor toekomstig gebruik)
       raster: 0.25,        // rasterafstand in meter
       niveaus: [{ id: uid('niv'), naam: 'Gelijkvloers' }],
+      onderlaag: null,     // ingescand grondplan om over te tekenen
       ruimtes: [],
       muren: [],
     },
@@ -238,6 +239,7 @@ export function migreer(p) {
   if (!p || typeof p !== 'object') return nieuwProject();
   p.version = p.version || 1;
   p.plan = p.plan || { raster: 0.25, ruimtes: [], muren: [], niveaus: [] };
+  p.plan.onderlaag = p.plan.onderlaag || null;
   p.plan.ruimtes = p.plan.ruimtes || [];
   p.plan.muren = p.plan.muren || [];
   p.plan.niveaus = p.plan.niveaus && p.plan.niveaus.length ? p.plan.niveaus : [{ id: uid('niv'), naam: 'Gelijkvloers' }];

@@ -127,6 +127,52 @@ export function importeerProject(bestand) {
 }
 
 /* ------------------------------------------------------------------ *
+ * Grondplan als onderlaag
+ * ------------------------------------------------------------------ */
+
+/** Leest een afbeelding in, verkleint ze en zet ze als onderlaag onder het plan. */
+export function importeerOnderlaag(bestand, maxPx = 1800) {
+  return new Promise((klaar, fout) => {
+    const lezer = new FileReader();
+    lezer.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const schaal = Math.min(1, maxPx / Math.max(img.width, img.height));
+        const c = document.createElement('canvas');
+        c.width = Math.round(img.width * schaal);
+        c.height = Math.round(img.height * schaal);
+        const ctx = c.getContext('2d');
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, c.width, c.height);
+        ctx.drawImage(img, 0, 0, c.width, c.height);
+        const data = c.toDataURL('image/jpeg', 0.82);
+        const breedte = 10;                                  // standaard 10 m breed
+        const hoogte = +(breedte * (c.height / c.width)).toFixed(3);
+        store.commit('grondplan geïmporteerd', (p) => {
+          const bestaand = p.plan.onderlaag || {};
+          p.plan.onderlaag = {
+            data,
+            x: bestaand.x ?? 0,
+            y: bestaand.y ?? 0,
+            breedte,
+            hoogte,
+            dekking: bestaand.dekking ?? 0.55,
+            vergrendeld: false,
+            zichtbaar: true,
+            naam: bestand.name || 'grondplan',
+          };
+        });
+        klaar(store.project.plan.onderlaag);
+      };
+      img.onerror = () => fout(new Error('De afbeelding kon niet gelezen worden.'));
+      img.src = String(lezer.result);
+    };
+    lezer.onerror = () => fout(lezer.error);
+    lezer.readAsDataURL(bestand);
+  });
+}
+
+/* ------------------------------------------------------------------ *
  * Afbeeldingen
  * ------------------------------------------------------------------ */
 export function exporteerSVG(canvas) {

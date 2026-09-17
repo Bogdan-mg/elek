@@ -73,6 +73,16 @@ function paneelPlattegrond() {
       <button class="mini" data-actie="stop-polygoon">Annuleren</button></div>`;
   }
 
+  if (p.plan.onderlaag) {
+    const ol = p.plan.onderlaag;
+    h += `<div class="lijst-kop"><h3>Ingescand grondplan</h3></div>
+      <li class="rij" data-actie="selecteer" data-id="onderlaag" style="list-style:none">
+        <span class="rij-naam">${escape(ol.naam || 'grondplan')}</span>
+        <span class="rij-meta">${ol.breedte.toFixed(1)} m</span></li>
+      <label class="schakel"><input type="checkbox" data-actie="onderlaag-zichtbaar" ${ol.zichtbaar !== false ? 'checked' : ''}> Tonen</label>
+      <label class="schakel"><input type="checkbox" data-actie="onderlaag-vergrendeld" ${ol.vergrendeld ? 'checked' : ''}> Vergrendelen</label>`;
+  }
+
   h += `<div class="lijst-kop"><h3>Deuren, ramen en trap</h3></div><div class="palet">`;
   for (const c of CATALOG.filter((x) => x.groep === 'Bouwkundig')) {
     const actief = ui.tool === 'plaats' && ui.plaatsType === c.key;
@@ -247,7 +257,8 @@ function paneelKringen() {
 export function tekenRechts() {
   const sel = store.ui.selectie;
   let h = '';
-  if (sel.length > 1) h = paneelMeervoudig(sel);
+  if (sel.length === 1 && sel[0] === 'onderlaag') h = paneelOnderlaag();
+  else if (sel.length > 1) h = paneelMeervoudig(sel);
   else if (sel.length === 1) {
     const comp = store.component(sel[0]);
     const ruimte = store.ruimte(sel[0]);
@@ -345,6 +356,22 @@ function paneelRuimte(r) {
       <button class="knop" data-actie="selecteer-inhoud">Componenten selecteren</button>
       <button class="knop gevaar" data-actie="verwijder-selectie">Ruimte verwijderen</button>
     </div>`;
+}
+
+function paneelOnderlaag() {
+  const ol = store.project.plan.onderlaag;
+  if (!ol) return paneelProject();
+  return `<div class="paneel-kop"><h2>Grondplan</h2>
+      <p>${escape(ol.naam || 'ingescand plan')} · ${ol.breedte.toFixed(2)} × ${ol.hoogte.toFixed(2)} m</p></div>
+    <p class="hint">Zet de breedte gelijk aan een maat die je kent op het plan, dan klopt de schaal.
+      Sleep de afbeelding om ze goed te leggen en vergrendel ze daarna.</p>
+    <label class="veld"><span>Breedte (m)</span>
+      <input type="number" step="0.1" min="0.5" value="${ol.breedte.toFixed(2)}" data-actie="onderlaag-breedte"></label>
+    <label class="veld"><span>Doorzichtigheid (${Math.round((ol.dekking ?? 0.55) * 100)} %)</span>
+      <input type="range" min="10" max="100" step="5" value="${Math.round((ol.dekking ?? 0.55) * 100)}" data-actie="onderlaag-dekking"></label>
+    <label class="schakel"><input type="checkbox" data-actie="onderlaag-zichtbaar" ${ol.zichtbaar !== false ? 'checked' : ''}> Tonen</label>
+    <label class="schakel"><input type="checkbox" data-actie="onderlaag-vergrendeld" ${ol.vergrendeld ? 'checked' : ''}> Vergrendelen (niet verslepen)</label>
+    <div class="knop-rij"><button class="knop gevaar" data-actie="onderlaag-weg">Grondplan verwijderen</button></div>`;
 }
 
 function paneelMeervoudig(sel) {
@@ -461,6 +488,11 @@ function klik(e) {
       store.selecteer(ids);
       break;
     }
+    case 'onderlaag-weg':
+      if (!confirm('Het ingescande grondplan verwijderen?')) return;
+      store.commit('grondplan verwijderd', (p) => { p.plan.onderlaag = null; });
+      store.selecteer([]);
+      break;
     case 'verwijder-selectie': verwijderSelectie(); break;
     case 'dupliceer': dupliceerSelectie(); break;
     case 'verwijder-verbinding':
@@ -478,6 +510,11 @@ function invoer(e) {
   const waarde = veld.value;
 
   if (actie === 'zoek') { store.setUI({ zoek: waarde }); return; }
+  if (actie === 'onderlaag-dekking') {
+    const ol = store.project.plan.onderlaag;
+    if (ol) { ol.dekking = Number(waarde) / 100; store.bewaar(); store.emit('project-licht'); }
+    return;
+  }
   if (actie === 'comp-rot') {
     const comps = eersteSelectieComponent();
     for (const c of comps) c.rot = Number(waarde);
@@ -588,6 +625,24 @@ function wijzig(e) {
       });
       break;
     }
+    case 'onderlaag-breedte': {
+      const nieuw = Number(waarde);
+      if (!(nieuw > 0.2)) break;
+      store.commit('schaal grondplan', (p) => {
+        const ol = p.plan.onderlaag;
+        if (!ol) return;
+        const verhouding = ol.hoogte / ol.breedte;
+        ol.breedte = nieuw;
+        ol.hoogte = +(nieuw * verhouding).toFixed(3);
+      });
+      break;
+    }
+    case 'onderlaag-zichtbaar':
+      store.commit('grondplan getoond', (p) => { if (p.plan.onderlaag) p.plan.onderlaag.zichtbaar = veld.checked; });
+      break;
+    case 'onderlaag-vergrendeld':
+      store.commit('grondplan vergrendeld', (p) => { if (p.plan.onderlaag) p.plan.onderlaag.vergrendeld = veld.checked; });
+      break;
     case 'ruimte-kleur':
       store.commit('kleur gewijzigd', () => { const r = store.ruimte(store.ui.selectie[0]); if (r) r.kleur = waarde; });
       break;

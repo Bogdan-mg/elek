@@ -105,6 +105,18 @@ export class PlanCanvas {
       s += `<rect x="${vb.x}" y="${vb.y}" width="${vb.w}" height="${vb.h}" fill="url(#raster)"/>`;
     }
 
+    // Ingescand grondplan als onderlaag
+    const ol = p.plan.onderlaag;
+    if (ol && ol.data && ol.zichtbaar !== false) {
+      const gesel = !voorExport && store.isGeselecteerd('onderlaag');
+      s += `<image href="${ol.data}" x="${ol.x}" y="${ol.y}" width="${ol.breedte}" height="${ol.hoogte}" ` +
+        `opacity="${ol.dekking ?? 0.55}" preserveAspectRatio="none"${ol.vergrendeld ? '' : ' data-kind="onderlaag" data-id="onderlaag"'}/>`;
+      if (gesel) {
+        s += `<rect x="${ol.x}" y="${ol.y}" width="${ol.breedte}" height="${ol.hoogte}" fill="none" ` +
+          `stroke="var(--accent)" stroke-width="${lijn * 2}" stroke-dasharray="${lijn * 5} ${lijn * 4}"/>`;
+      }
+    }
+
     // Ruimtes
     s += '<g class="laag-ruimtes">';
     for (const r of p.plan.ruimtes) s += this.ruimteSVG(r, lijn, voorExport);
@@ -654,6 +666,11 @@ export class PlanCanvas {
       this.actie = { type: 'hoek', ruimteId: id, index: Number(doel.dataset.index) };
       return;
     }
+    if (kind === 'onderlaag') {
+      if (!store.isGeselecteerd('onderlaag')) store.selecteer('onderlaag', e.shiftKey);
+      this.actie = { type: 'onderlaag', start: w, verplaatst: false };
+      return;
+    }
     if (kind === 'component' || kind === 'ruimte' || kind === 'muur') {
       if (!store.isGeselecteerd(id)) store.selecteer(id, e.shiftKey);
       else if (e.shiftKey) { store.selecteer(id, true); return; }
@@ -776,6 +793,17 @@ export class PlanCanvas {
         this.plan();
         break;
       }
+      case 'onderlaag': {
+        const ol = store.project.plan.onderlaag;
+        if (ol) {
+          ol.x = +(ol.x + (w.x - a.start.x)).toFixed(3);
+          ol.y = +(ol.y + (w.y - a.start.y)).toFixed(3);
+          a.start = w;
+          a.verplaatst = true;
+          this.plan();
+        }
+        break;
+      }
       case 'hoek': {
         const r = store.ruimte(a.ruimteId);
         if (r) { r.punten[a.index] = snapPunt(w, raster); a.verplaatst = true; this.plan(); }
@@ -813,6 +841,9 @@ export class PlanCanvas {
         if (gevonden.length) store.selecteer(gevonden, e.shiftKey);
         break;
       }
+      case 'onderlaag':
+        if (a.verplaatst) store.commit('onderlaag verplaatst', () => {});
+        break;
       case 'sleep':
       case 'hoek': {
         if (a.verplaatst) {

@@ -453,6 +453,7 @@ kbd { background: var(--vlak-3); border: 1px solid var(--rand); border-radius: 5
     <button data-app="bord-svg">Eendraadschema als SVG</button>
     <button data-app="print">Afdrukken / PDF</button>
     <hr>
+    <button data-app="onderlaag">Grondplan importeren (foto of scan)…</button>
     <button data-app="voorbeeld">Voorbeeldwoning laden</button>
     <button data-app="legende">Symbolenlegende (AREI)</button>
     <button data-app="help">Uitleg &amp; sneltoetsen</button>
@@ -496,6 +497,7 @@ kbd { background: var(--vlak-3); border: 1px solid var(--rand); border-radius: 5
 </main>
 
 <input type="file" id="bestand-invoer" accept=".json,application/json" hidden>
+<input type="file" id="onderlaag-invoer" accept="image/*" hidden>
 <div id="print-vlak" class="print-vlak"></div>
 
 <dialog id="welkom" class="dialoog">
@@ -503,7 +505,8 @@ kbd { background: var(--vlak-3); border: 1px solid var(--rand); border-radius: 5
   <p>Maak het elektrisch dossier van een woning in drie stappen:</p>
   <ol class="stappen-uitleg">
     <li><strong>Plattegrond</strong> — teken de ruimtes van de woning.</li>
-    <li><strong>Componenten</strong> — plaats lichtpunten, schakelaars, stopcontacten en toestellen.</li>
+    <li><strong>Componenten</strong> — plaats lichtpunten, schakelaars, stopcontacten en toestellen met de
+      AREI-symbolen.</li>
     <li><strong>Kringen</strong> — bepaal per component op welke zekering hij komt en bekijk het verdeelbord.</li>
   </ol>
   <div class="dialoog-knoppen">
@@ -527,9 +530,21 @@ kbd { background: var(--vlak-3); border: 1px solid var(--rand); border-radius: 5
   <h2>Uitleg &amp; sneltoetsen</h2>
   <h3>Werkwijze</h3>
   <ul>
-    <li><strong>Stap 1:</strong> kies “Ruimte” en sleep een rechthoek, of “Vorm” en klik punt per punt (dubbelklik of Enter sluit de vorm). Sleep een geselecteerde ruimte om ze te verplaatsen; sleep de hoekpunten om ze te vervormen.</li>
-    <li><strong>Stap 2:</strong> kies een symbool in het palet en klik op het plan. Schakelaars en stopcontacten klikken automatisch tegen de dichtstbijzijnde muur. Met “Verbinden” koppel je een schakelaar aan het lichtpunt dat hij bedient.</li>
-    <li><strong>Stap 3:</strong> klik “Automatisch verdelen” voor een voorstel, of maak zelf kringen en klik componenten aan om ze toe te wijzen. De controlelijst waarschuwt voor te veel punten per kring, een te zware automaat of een ontbrekend differentieel van 30 mA.</li>
+    <li><strong>Stap 1:</strong> “Ruimte” klikt twee hoeken, “Vorm” klikt punt per punt (Enter of een klik op het
+      eerste punt sluit de vorm). Tijdens het tekenen zie je de lengte en de hoek; richtingen springen op 45°
+      zodat lijnen recht blijven, met <kbd>Alt</kbd> teken je vrij. Typ een lengte in meter en druk <kbd>Enter</kbd>
+      voor een exacte maat. Hoekpunten van bestaande ruimtes trekken aan, zodat kamers netjes aansluiten.
+      Deuren, ramen, een doorgang, een garagepoort en een trap klik je in de muur.</li>
+    <li><strong>Grondplan importeren:</strong> via het menu laad je een foto of scan van een bestaand plan als
+      onderlaag. Zet de breedte gelijk aan een maat die je kent, vergrendel de afbeelding en teken erover.</li>
+    <li><strong>Stap 2:</strong> kies een symbool in het palet en klik op het plan. Schakelaars en stopcontacten
+      klikken automatisch tegen de dichtstbijzijnde muur en draaien mee. Met “Verbinden” koppel je een schakelaar
+      aan het lichtpunt dat hij bedient.</li>
+    <li><strong>Stap 3:</strong> klik “Automatisch verdelen” voor een voorstel, of maak zelf kringen en klik
+      componenten aan om ze toe te wijzen. De controlelijst waarschuwt voor te veel punten per kring, een te
+      zware automaat of een ontbrekend differentieel van 30 mA.</li>
+    <li><strong>Verdeelbord:</strong> het tabblad toont het eendraadschema van aardelektrode, teller en
+      hoofdautomaat over de differentiëlen tot elke kring, met de symbolen van alle toestellen in de lijn.</li>
   </ul>
   <h3>Sneltoetsen</h3>
   <ul class="toetsen">
@@ -545,6 +560,9 @@ kbd { background: var(--vlak-3); border: 1px solid var(--rand); border-radius: 5
   </ul>
   <h3>Op iPad</h3>
   <p>Eén vinger sleept het plan, twee vingers zoomen. Tik een component aan om hem te selecteren en sleep hem naar de juiste plaats. Installeer de app via <em>Deel → Zet op beginscherm</em>.</p>
+  <h3>Symbolen</h3>
+  <p>De symbolen volgen AREI Boek 1, tabel 2.23. Via <em>Menu → Symbolenlegende</em> zie je ze allemaal met hun
+    naam; die lijst kan je ook afdrukken.</p>
   <p class="voetnoot">De controles zijn gangbare AREI-vuistregels en vervangen geen keuring door een erkend organisme.</p>
   <div class="dialoog-knoppen"><button class="knop primair" data-app="sluit-help">Sluiten</button></div>
 </dialog>
@@ -865,6 +883,7 @@ function nieuwProject(naam = 'Nieuw project') {
       schaal: 1,           // meters per planeenheid (altijd 1, ruimte voor toekomstig gebruik)
       raster: 0.25,        // rasterafstand in meter
       niveaus: [{ id: uid('niv'), naam: 'Gelijkvloers' }],
+      onderlaag: null,     // ingescand grondplan om over te tekenen
       ruimtes: [],
       muren: [],
     },
@@ -880,6 +899,7 @@ function migreer(p) {
   if (!p || typeof p !== 'object') return nieuwProject();
   p.version = p.version || 1;
   p.plan = p.plan || { raster: 0.25, ruimtes: [], muren: [], niveaus: [] };
+  p.plan.onderlaag = p.plan.onderlaag || null;
   p.plan.ruimtes = p.plan.ruimtes || [];
   p.plan.muren = p.plan.muren || [];
   p.plan.niveaus = p.plan.niveaus && p.plan.niveaus.length ? p.plan.niveaus : [{ id: uid('niv'), naam: 'Gelijkvloers' }];
@@ -1788,6 +1808,18 @@ class PlanCanvas {
       s += `<rect x="${vb.x}" y="${vb.y}" width="${vb.w}" height="${vb.h}" fill="url(#raster)"/>`;
     }
 
+    // Ingescand grondplan als onderlaag
+    const ol = p.plan.onderlaag;
+    if (ol && ol.data && ol.zichtbaar !== false) {
+      const gesel = !voorExport && store.isGeselecteerd('onderlaag');
+      s += `<image href="${ol.data}" x="${ol.x}" y="${ol.y}" width="${ol.breedte}" height="${ol.hoogte}" ` +
+        `opacity="${ol.dekking ?? 0.55}" preserveAspectRatio="none"${ol.vergrendeld ? '' : ' data-kind="onderlaag" data-id="onderlaag"'}/>`;
+      if (gesel) {
+        s += `<rect x="${ol.x}" y="${ol.y}" width="${ol.breedte}" height="${ol.hoogte}" fill="none" ` +
+          `stroke="var(--accent)" stroke-width="${lijn * 2}" stroke-dasharray="${lijn * 5} ${lijn * 4}"/>`;
+      }
+    }
+
     // Ruimtes
     s += '<g class="laag-ruimtes">';
     for (const r of p.plan.ruimtes) s += this.ruimteSVG(r, lijn, voorExport);
@@ -2337,6 +2369,11 @@ class PlanCanvas {
       this.actie = { type: 'hoek', ruimteId: id, index: Number(doel.dataset.index) };
       return;
     }
+    if (kind === 'onderlaag') {
+      if (!store.isGeselecteerd('onderlaag')) store.selecteer('onderlaag', e.shiftKey);
+      this.actie = { type: 'onderlaag', start: w, verplaatst: false };
+      return;
+    }
     if (kind === 'component' || kind === 'ruimte' || kind === 'muur') {
       if (!store.isGeselecteerd(id)) store.selecteer(id, e.shiftKey);
       else if (e.shiftKey) { store.selecteer(id, true); return; }
@@ -2459,6 +2496,17 @@ class PlanCanvas {
         this.plan();
         break;
       }
+      case 'onderlaag': {
+        const ol = store.project.plan.onderlaag;
+        if (ol) {
+          ol.x = +(ol.x + (w.x - a.start.x)).toFixed(3);
+          ol.y = +(ol.y + (w.y - a.start.y)).toFixed(3);
+          a.start = w;
+          a.verplaatst = true;
+          this.plan();
+        }
+        break;
+      }
       case 'hoek': {
         const r = store.ruimte(a.ruimteId);
         if (r) { r.punten[a.index] = snapPunt(w, raster); a.verplaatst = true; this.plan(); }
@@ -2496,6 +2544,9 @@ class PlanCanvas {
         if (gevonden.length) store.selecteer(gevonden, e.shiftKey);
         break;
       }
+      case 'onderlaag':
+        if (a.verplaatst) store.commit('onderlaag verplaatst', () => {});
+        break;
       case 'sleep':
       case 'hoek': {
         if (a.verplaatst) {
@@ -3076,6 +3127,16 @@ function paneelPlattegrond() {
       <button class="mini" data-actie="stop-polygoon">Annuleren</button></div>`;
   }
 
+  if (p.plan.onderlaag) {
+    const ol = p.plan.onderlaag;
+    h += `<div class="lijst-kop"><h3>Ingescand grondplan</h3></div>
+      <li class="rij" data-actie="selecteer" data-id="onderlaag" style="list-style:none">
+        <span class="rij-naam">${escape(ol.naam || 'grondplan')}</span>
+        <span class="rij-meta">${ol.breedte.toFixed(1)} m</span></li>
+      <label class="schakel"><input type="checkbox" data-actie="onderlaag-zichtbaar" ${ol.zichtbaar !== false ? 'checked' : ''}> Tonen</label>
+      <label class="schakel"><input type="checkbox" data-actie="onderlaag-vergrendeld" ${ol.vergrendeld ? 'checked' : ''}> Vergrendelen</label>`;
+  }
+
   h += `<div class="lijst-kop"><h3>Deuren, ramen en trap</h3></div><div class="palet">`;
   for (const c of CATALOG.filter((x) => x.groep === 'Bouwkundig')) {
     const actief = ui.tool === 'plaats' && ui.plaatsType === c.key;
@@ -3250,7 +3311,8 @@ function paneelKringen() {
 function tekenRechts() {
   const sel = store.ui.selectie;
   let h = '';
-  if (sel.length > 1) h = paneelMeervoudig(sel);
+  if (sel.length === 1 && sel[0] === 'onderlaag') h = paneelOnderlaag();
+  else if (sel.length > 1) h = paneelMeervoudig(sel);
   else if (sel.length === 1) {
     const comp = store.component(sel[0]);
     const ruimte = store.ruimte(sel[0]);
@@ -3348,6 +3410,22 @@ function paneelRuimte(r) {
       <button class="knop" data-actie="selecteer-inhoud">Componenten selecteren</button>
       <button class="knop gevaar" data-actie="verwijder-selectie">Ruimte verwijderen</button>
     </div>`;
+}
+
+function paneelOnderlaag() {
+  const ol = store.project.plan.onderlaag;
+  if (!ol) return paneelProject();
+  return `<div class="paneel-kop"><h2>Grondplan</h2>
+      <p>${escape(ol.naam || 'ingescand plan')} · ${ol.breedte.toFixed(2)} × ${ol.hoogte.toFixed(2)} m</p></div>
+    <p class="hint">Zet de breedte gelijk aan een maat die je kent op het plan, dan klopt de schaal.
+      Sleep de afbeelding om ze goed te leggen en vergrendel ze daarna.</p>
+    <label class="veld"><span>Breedte (m)</span>
+      <input type="number" step="0.1" min="0.5" value="${ol.breedte.toFixed(2)}" data-actie="onderlaag-breedte"></label>
+    <label class="veld"><span>Doorzichtigheid (${Math.round((ol.dekking ?? 0.55) * 100)} %)</span>
+      <input type="range" min="10" max="100" step="5" value="${Math.round((ol.dekking ?? 0.55) * 100)}" data-actie="onderlaag-dekking"></label>
+    <label class="schakel"><input type="checkbox" data-actie="onderlaag-zichtbaar" ${ol.zichtbaar !== false ? 'checked' : ''}> Tonen</label>
+    <label class="schakel"><input type="checkbox" data-actie="onderlaag-vergrendeld" ${ol.vergrendeld ? 'checked' : ''}> Vergrendelen (niet verslepen)</label>
+    <div class="knop-rij"><button class="knop gevaar" data-actie="onderlaag-weg">Grondplan verwijderen</button></div>`;
 }
 
 function paneelMeervoudig(sel) {
@@ -3464,6 +3542,11 @@ function klik(e) {
       store.selecteer(ids);
       break;
     }
+    case 'onderlaag-weg':
+      if (!confirm('Het ingescande grondplan verwijderen?')) return;
+      store.commit('grondplan verwijderd', (p) => { p.plan.onderlaag = null; });
+      store.selecteer([]);
+      break;
     case 'verwijder-selectie': verwijderSelectie(); break;
     case 'dupliceer': dupliceerSelectie(); break;
     case 'verwijder-verbinding':
@@ -3481,6 +3564,11 @@ function invoer(e) {
   const waarde = veld.value;
 
   if (actie === 'zoek') { store.setUI({ zoek: waarde }); return; }
+  if (actie === 'onderlaag-dekking') {
+    const ol = store.project.plan.onderlaag;
+    if (ol) { ol.dekking = Number(waarde) / 100; store.bewaar(); store.emit('project-licht'); }
+    return;
+  }
   if (actie === 'comp-rot') {
     const comps = eersteSelectieComponent();
     for (const c of comps) c.rot = Number(waarde);
@@ -3591,6 +3679,24 @@ function wijzig(e) {
       });
       break;
     }
+    case 'onderlaag-breedte': {
+      const nieuw = Number(waarde);
+      if (!(nieuw > 0.2)) break;
+      store.commit('schaal grondplan', (p) => {
+        const ol = p.plan.onderlaag;
+        if (!ol) return;
+        const verhouding = ol.hoogte / ol.breedte;
+        ol.breedte = nieuw;
+        ol.hoogte = +(nieuw * verhouding).toFixed(3);
+      });
+      break;
+    }
+    case 'onderlaag-zichtbaar':
+      store.commit('grondplan getoond', (p) => { if (p.plan.onderlaag) p.plan.onderlaag.zichtbaar = veld.checked; });
+      break;
+    case 'onderlaag-vergrendeld':
+      store.commit('grondplan vergrendeld', (p) => { if (p.plan.onderlaag) p.plan.onderlaag.vergrendeld = veld.checked; });
+      break;
     case 'ruimte-kleur':
       store.commit('kleur gewijzigd', () => { const r = store.ruimte(store.ui.selectie[0]); if (r) r.kleur = waarde; });
       break;
@@ -3785,6 +3891,52 @@ function importeerProject(bestand) {
     };
     lezer.onerror = () => fout(lezer.error);
     lezer.readAsText(bestand);
+  });
+}
+
+/* ------------------------------------------------------------------ *
+ * Grondplan als onderlaag
+ * ------------------------------------------------------------------ */
+
+/** Leest een afbeelding in, verkleint ze en zet ze als onderlaag onder het plan. */
+function importeerOnderlaag(bestand, maxPx = 1800) {
+  return new Promise((klaar, fout) => {
+    const lezer = new FileReader();
+    lezer.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const schaal = Math.min(1, maxPx / Math.max(img.width, img.height));
+        const c = document.createElement('canvas');
+        c.width = Math.round(img.width * schaal);
+        c.height = Math.round(img.height * schaal);
+        const ctx = c.getContext('2d');
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, c.width, c.height);
+        ctx.drawImage(img, 0, 0, c.width, c.height);
+        const data = c.toDataURL('image/jpeg', 0.82);
+        const breedte = 10;                                  // standaard 10 m breed
+        const hoogte = +(breedte * (c.height / c.width)).toFixed(3);
+        store.commit('grondplan geïmporteerd', (p) => {
+          const bestaand = p.plan.onderlaag || {};
+          p.plan.onderlaag = {
+            data,
+            x: bestaand.x ?? 0,
+            y: bestaand.y ?? 0,
+            breedte,
+            hoogte,
+            dekking: bestaand.dekking ?? 0.55,
+            vergrendeld: false,
+            zichtbaar: true,
+            naam: bestand.name || 'grondplan',
+          };
+        });
+        klaar(store.project.plan.onderlaag);
+      };
+      img.onerror = () => fout(new Error('De afbeelding kon niet gelezen worden.'));
+      img.src = String(lezer.result);
+    };
+    lezer.onerror = () => fout(lezer.error);
+    lezer.readAsDataURL(bestand);
   });
 }
 
@@ -3992,6 +4144,7 @@ function bindWerkbalk() {
       case 'sluit-paneel':
         document.body.classList.remove('links-open', 'rechts-open', 'menu-open');
         break;
+      case 'onderlaag': $('#onderlaag-invoer').click(); break;
       case 'voorbeeld': laadVoorbeeld(); break;
       case 'bord-passend':
         $('#bord-schema').classList.add('passend');
@@ -4013,6 +4166,19 @@ function bindWerkbalk() {
       default: break;
     }
     if (knop.dataset.app !== 'menu') document.body.classList.remove('menu-open');
+  });
+
+  $('#onderlaag-invoer').addEventListener('change', async (e) => {
+    const bestand = e.target.files[0];
+    if (!bestand) return;
+    try {
+      await importeerOnderlaag(bestand);
+      zetStap(1);
+      canvas.zoomNaarAlles();
+    } catch (err) {
+      alert('Deze afbeelding kon niet geladen worden: ' + err.message);
+    }
+    e.target.value = '';
   });
 
   $('#bestand-invoer').addEventListener('change', async (e) => {

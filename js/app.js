@@ -6,7 +6,7 @@ import { tekenLinks, tekenRechts, bindPanelen, koppelCanvas, verwijderSelectie, 
 import { bouwBordSVG, bouwBordTabel } from './board.js';
 import {
   exporteerProject, importeerProject, exporteerPNG, exporteerSVG,
-  exporteerBordPNG, exporteerBordSVG, drukAf, drukAfLegende,
+  exporteerBordPNG, exporteerBordSVG, drukAf, drukAfLegende, importeerOnderlaag,
 } from './exporters.js';
 import { nieuwProject, uid, def, CATALOG, GROEPEN } from './model.js';
 import { symboolIcoon } from './symbols.js';
@@ -86,6 +86,7 @@ function bindWerkbalk() {
       case 'sluit-paneel':
         document.body.classList.remove('links-open', 'rechts-open', 'menu-open');
         break;
+      case 'onderlaag': $('#onderlaag-invoer').click(); break;
       case 'voorbeeld': laadVoorbeeld(); break;
       case 'bord-passend':
         $('#bord-schema').classList.add('passend');
@@ -107,6 +108,19 @@ function bindWerkbalk() {
       default: break;
     }
     if (knop.dataset.app !== 'menu') document.body.classList.remove('menu-open');
+  });
+
+  $('#onderlaag-invoer').addEventListener('change', async (e) => {
+    const bestand = e.target.files[0];
+    if (!bestand) return;
+    try {
+      await importeerOnderlaag(bestand);
+      zetStap(1);
+      canvas.zoomNaarAlles();
+    } catch (err) {
+      alert('Deze afbeelding kon niet geladen worden: ' + err.message);
+    }
+    e.target.value = '';
   });
 
   $('#bestand-invoer').addEventListener('change', async (e) => {
