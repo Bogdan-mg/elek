@@ -71,7 +71,18 @@ export function planSVG(canvas, { pxPerMeter = 80, titel = true } = {}) {
   return s;
 }
 
-function bewaarBlob(blob, bestandsnaam) {
+async function bewaarBlob(blob, bestandsnaam) {
+  // Draait de app in een omgeving die zelf bestanden aflevert (de viewer op
+  // claude.ai), dan verloopt het bewaren daarlangs; anders gewoon downloaden.
+  if (typeof window !== 'undefined' && window.claude && typeof window.claude.use === 'function') {
+    try {
+      const downloads = await window.claude.use('downloads');
+      if (downloads) { await downloads.save({ filename: bestandsnaam, data: blob }); return; }
+    } catch (e) {
+      if (e && e.code === 'declined') return;
+      console.warn('Bewaren via de viewer mislukte:', e);
+    }
+  }
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   if ('download' in a) {
