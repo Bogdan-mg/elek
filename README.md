@@ -221,6 +221,22 @@ hun naam; die lijst kan je ook afdrukken.
 
 Op iPad: één vinger sleept het plan, twee vingers zoomen, tikken selecteert.
 
+## Testen
+De app heeft zelf geen dependencies. Voor de rooktest gebruikt het project
+Playwright:
+
+```bash
+npm install            # enkel Playwright, voor de test
+npx playwright install chromium
+npm test               # laadt de app in Chromium en controleert de stappen
+npm start              # kleine webserver op http://127.0.0.1:8080
+```
+
+De test laadt de voorbeeldwoning, tekent een vorm op ingetypte maat, controleert
+de kringlijst, het eendraadschema, het eigenschappenpaneel, de afdruk en of het
+project bewaard blijft — en faalt bij een fout in de console. Dezelfde test
+draait bij elke push via GitHub Actions.
+
 ## Opbouw van de code
 
 Geen bouwstap, geen dependencies — alleen ES-modules die de browser zelf laadt.
@@ -240,6 +256,8 @@ Geen bouwstap, geen dependencies — alleen ES-modules die de browser zelf laadt
 | `js/exporters.js` | JSON, PNG, SVG en afdrukken |
 | `sw.js` | service worker voor offline gebruik |
 | `tools/bouw-eenbestand.py` | bouwt `elek-eenbestand.html` (alles in één bestand) |
+| `tests/rook.mjs` | rooktest in Chromium (`npm test`) |
+| `tests/server.mjs` | kleine webserver zonder dependencies |
 
 ## Voorbehoud
 
