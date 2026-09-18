@@ -4,7 +4,7 @@
 import store from './store.js';
 import {
   CATALOG, GROEPEN, def, ruimteDef, RUIMTETYPES, AMPERES, SECTIES,
-  KRINGSJABLOON, minSectieVoor, uid, puntenVan,
+  KRINGSJABLOON, minSectieVoor, uid, puntenVan, KORTSLUIT, KABELTYPES,
 } from './model.js';
 import { symboolIcoon } from './symbols.js';
 import { escape } from './canvas.js';
@@ -190,6 +190,9 @@ function paneelKringen() {
       <select class="mini-select" data-actie="dif-amp" data-id="${d.id}">
         ${[25, 40, 63, 80].map((a) => `<option value="${a}"${d.amp === a ? ' selected' : ''}>${a} A</option>`).join('')}
       </select>
+      <select class="mini-select" data-actie="dif-kortsluit" data-id="${d.id}" title="Kortsluitvermogen">
+        ${KORTSLUIT.map((ks) => `<option value="${ks}"${(d.kortsluit || 3000) === ks ? ' selected' : ''}>${ks}</option>`).join('')}
+      </select>
       <span class="rij-meta">${aantal}</span>
       <button class="mini gevaar" data-actie="verwijder-differentieel" data-id="${d.id}" title="Verwijderen">×</button></li>`;
   }
@@ -228,6 +231,12 @@ function paneelKringen() {
           <select data-actie="kring-amp" data-id="${actief.id}">${AMPERES.map((a) => `<option value="${a}"${actief.amp === a ? ' selected' : ''}>${a} A</option>`).join('')}</select></label>
         <label class="veld"><span>Kabel</span>
           <select data-actie="kring-mm2" data-id="${actief.id}">${SECTIES.map((m) => `<option value="${m}"${actief.mm2 === m ? ' selected' : ''}>${m} mm²</option>`).join('')}</select></label>
+      </div>
+      <div class="veld-rij">
+        <label class="veld"><span>Kabeltype</span>
+          <select data-actie="kring-kabel" data-id="${actief.id}">${KABELTYPES.map((kt) => `<option value="${kt}"${(actief.kabel || 'VOB') === kt ? ' selected' : ''}>${kt}</option>`).join('')}</select></label>
+        <label class="veld"><span>Kortsluitvermogen</span>
+          <select data-actie="kring-kortsluit" data-id="${actief.id}">${KORTSLUIT.map((ks) => `<option value="${ks}"${(actief.kortsluit || 3000) === ks ? ' selected' : ''}>${ks} A</option>`).join('')}</select></label>
       </div>
       <div class="veld-rij">
         <label class="veld"><span>Type kring</span>
@@ -399,6 +408,14 @@ function paneelProject() {
     <label class="veld"><span>Projectnaam</span><input type="text" value="${escape(p.naam || '')}" data-actie="prj-naam"></label>
     <label class="veld"><span>Klant</span><input type="text" value="${escape(p.klant || '')}" data-actie="prj-klant"></label>
     <label class="veld"><span>Adres</span><input type="text" value="${escape(p.adres || '')}" data-actie="prj-adres"></label>
+    <label class="veld"><span>Installateur</span>
+      <input type="text" value="${escape((p.installateur && p.installateur.naam) || '')}" placeholder="firmanaam" data-actie="prj-inst-naam"></label>
+    <div class="veld-rij">
+      <label class="veld"><span>BTW-nummer</span>
+        <input type="text" value="${escape((p.installateur && p.installateur.btw) || '')}" placeholder="BE 0123.456.789" data-actie="prj-inst-btw"></label>
+      <label class="veld"><span>Telefoon</span>
+        <input type="text" value="${escape((p.installateur && p.installateur.telefoon) || '')}" data-actie="prj-inst-tel"></label>
+    </div>
     <div class="veld-rij">
       <label class="veld"><span>Aansluiting</span>
         <select data-actie="prj-fasen"><option value="1"${p.net.fasen === 1 ? ' selected' : ''}>1 fase 230 V</option>
@@ -406,6 +423,8 @@ function paneelProject() {
       <label class="veld"><span>Hoofdzekering</span>
         <select data-actie="prj-hoofd">${[25, 32, 40, 50, 63, 80].map((a) => `<option value="${a}"${p.net.hoofdzekering === a ? ' selected' : ''}>${a} A</option>`).join('')}</select></label>
     </div>
+    <label class="veld"><span>Kortsluitvermogen hoofdautomaat</span>
+      <select data-actie="prj-kortsluit">${KORTSLUIT.map((ks) => `<option value="${ks}"${(p.net.kortsluit || 3000) === ks ? ' selected' : ''}>${ks} A</option>`).join('')}</select></label>
     <div class="lijst-kop"><h3>Verdiepingen</h3></div><ul class="lijst">
       ${p.plan.niveaus.map((n) => `<li class="rij${store.niveau && store.niveau.id === n.id ? ' geselecteerd' : ''}">
         <input class="inline-invoer" value="${escape(n.naam)}" data-actie="niveau-naam" data-id="${n.id}">
@@ -590,6 +609,13 @@ function invoer(e) {
   if (actie === 'prj-naam') { store.project.naam = waarde; store.bewaar(); document.title = waarde + ' — Elek'; return; }
   if (actie === 'prj-klant') { store.project.klant = waarde; store.bewaar(); return; }
   if (actie === 'prj-adres') { store.project.adres = waarde; store.bewaar(); return; }
+  if (actie.startsWith('prj-inst-')) {
+    const veldnaam = { 'prj-inst-naam': 'naam', 'prj-inst-btw': 'btw', 'prj-inst-tel': 'telefoon' }[actie];
+    store.project.installateur = store.project.installateur || {};
+    store.project.installateur[veldnaam] = waarde;
+    store.bewaar();
+    return;
+  }
 }
 
 function wijzig(e) {
@@ -719,6 +745,18 @@ function wijzig(e) {
         const sj = KRINGSJABLOON[waarde];
         if (sj) { k.amp = sj.amp; k.mm2 = sj.mm2; }
       });
+      break;
+    case 'kring-kabel':
+      store.commit('kabeltype gewijzigd', () => { const k = store.kring(id); if (k) k.kabel = waarde; });
+      break;
+    case 'kring-kortsluit':
+      store.commit('kortsluitvermogen gewijzigd', () => { const k = store.kring(id); if (k) k.kortsluit = Number(waarde); });
+      break;
+    case 'dif-kortsluit':
+      store.commit('kortsluitvermogen gewijzigd', () => { const d = store.differentieel(id); if (d) d.kortsluit = Number(waarde); });
+      break;
+    case 'prj-kortsluit':
+      store.commit('kortsluitvermogen gewijzigd', (p) => { p.net.kortsluit = Number(waarde); });
       break;
     case 'kring-dif':
       store.commit('differentieel gekozen', () => { const k = store.kring(id); if (k) k.differentieelId = waarde || null; });

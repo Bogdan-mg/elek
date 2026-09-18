@@ -35,23 +35,62 @@ function kleurStijl() {
 
 /** Bounding box van alles wat op het plan staat, inclusief marge. */
 export function planOmhullende(marge = 0.8) {
-  const p = store.project;
-  const punten = [];
-  for (const r of p.plan.ruimtes) punten.push(...r.punten);
-  for (const m of p.plan.muren) punten.push(m.a, m.b);
-  for (const c of p.componenten) punten.push({ x: c.x, y: c.y });
-  const box = omhullende(punten) || { x1: 0, y1: 0, x2: 10, y2: 8 };
+  const ruw = ruweOmhullende();
+  if (marge === 0) return ruw;
   return {
-    x: box.x1 - marge,
-    y: box.y1 - marge,
-    w: Math.max(1, (box.x2 - box.x1) + marge * 2),
-    h: Math.max(1, (box.y2 - box.y1) + marge * 2),
+    x: ruw.x1 - marge, y: ruw.y1 - marge,
+    w: Math.max(1, ruw.x2 - ruw.x1 + marge * 2),
+    h: Math.max(1, ruw.y2 - ruw.y1 + marge * 2),
+    x1: ruw.x1 - marge, y1: ruw.y1 - marge, x2: ruw.x2 + marge, y2: ruw.y2 + marge,
   };
 }
 
+/** Uiterste punten van wat er op dit niveau getekend staat. */
+function ruweOmhullende() {
+  const punten = [];
+  for (const r of store.ruimtesVanNiveau()) punten.push(...r.punten);
+  for (const m of store.murenVanNiveau()) punten.push(m.a, m.b);
+  for (const c of store.componentenVanNiveau()) punten.push({ x: c.x, y: c.y });
+  const box = omhullende(punten) || { x1: 0, y1: 0, x2: 10, y2: 8 };
+  return { x1: box.x1, y1: box.y1, x2: box.x2, y2: box.y2, w: box.x2 - box.x1, h: box.y2 - box.y1 };
+}
+
+/** Maatlijnen met pijltjes rond het getekende plan, zoals op een dossier. */
+function maatlijnen(vb, px) {
+  const bx = planOmhullende(0);                     // zonder marge: de echte maten
+  if (bx.w < 0.5 || bx.h < 0.5) return '';
+  const kleur = '#111827';
+  const d = px(1);
+  const t = px(11);
+  const maat = (n) => n.toFixed(2).replace('.', ',');
+  const pijl = (x, y, kant) => {
+    const a = px(5);
+    return kant === 'h'
+      ? `<path d="M ${x} ${y} l ${a} ${-a * 0.45} v ${a * 0.9} Z" fill="${kleur}"/>`
+      : `<path d="M ${x} ${y} l ${-a * 0.45} ${a} h ${a * 0.9} Z" fill="${kleur}"/>`;
+  };
+  let s = '';
+  // breedte onderaan
+  const yb = bx.y2 + px(48);
+  s += `<line x1="${bx.x1}" y1="${yb}" x2="${bx.x2}" y2="${yb}" stroke="${kleur}" stroke-width="${d}"/>`;
+  s += `<line x1="${bx.x1}" y1="${bx.y2}" x2="${bx.x1}" y2="${yb + px(5)}" stroke="${kleur}" stroke-width="${d}"/>`;
+  s += `<line x1="${bx.x2}" y1="${bx.y2}" x2="${bx.x2}" y2="${yb + px(5)}" stroke="${kleur}" stroke-width="${d}"/>`;
+  s += pijl(bx.x1, yb, 'h') + pijl(bx.x2, yb, 'h').replace('l ' + px(5), 'l ' + -px(5));
+  s += `<text x="${(bx.x1 + bx.x2) / 2}" y="${yb - px(5)}" text-anchor="middle" font-size="${t}" fill="${kleur}">${maat(bx.w)} m</text>`;
+  // hoogte links
+  const xl = bx.x1 - px(30);
+  s += `<line x1="${xl}" y1="${bx.y1}" x2="${xl}" y2="${bx.y2}" stroke="${kleur}" stroke-width="${d}"/>`;
+  s += `<line x1="${bx.x1}" y1="${bx.y1}" x2="${xl - px(5)}" y2="${bx.y1}" stroke="${kleur}" stroke-width="${d}"/>`;
+  s += `<line x1="${bx.x1}" y1="${bx.y2}" x2="${xl - px(5)}" y2="${bx.y2}" stroke="${kleur}" stroke-width="${d}"/>`;
+  s += pijl(xl, bx.y1, 'v') + pijl(xl, bx.y2, 'v').replace('${a}', '').replace(/l (-?[\d.]+) ([\d.]+)/, (m, a1, a2) => `l ${a1} ${-parseFloat(a2)}`);
+  s += `<text x="${xl - px(5)}" y="${(bx.y1 + bx.y2) / 2}" text-anchor="middle" font-size="${t}" fill="${kleur}" ` +
+    `transform="rotate(-90 ${xl - px(5)} ${(bx.y1 + bx.y2) / 2})">${maat(bx.h)} m</text>`;
+  return s;
+}
+
 /** Losstaande SVG van het situatieschema, met titelhoek zoals op een dossier. */
-export function planSVG(canvas, { pxPerMeter = 80, titel = true } = {}) {
-  const vb = planOmhullende();
+export function planSVG(canvas, { pxPerMeter = 80, titel = true, blad = 1, bladen = 1 } = {}) {
+  const vb = planOmhullende(1.1);
   const bewaardeZoom = canvas.view.zoom;
   canvas.view.zoom = pxPerMeter;
   const inhoud = canvas.bouw({ vb, voorExport: true });
@@ -70,6 +109,7 @@ export function planSVG(canvas, { pxPerMeter = 80, titel = true } = {}) {
   let s = `<svg xmlns="http://www.w3.org/2000/svg" width="${Math.round(w)}" height="${Math.round(h)}" ` +
     `viewBox="${vb.x} ${vb.y - kop} ${vb.w} ${totaalH}" style="${kleurStijl()}" font-family="system-ui, sans-serif">`;
   s += `<rect x="${vb.x}" y="${vb.y - kop}" width="${vb.w}" height="${totaalH}" fill="#ffffff"/>`;
+  s += maatlijnen(vb, px);
 
   if (titel && niveau) {
     s += `<text x="${vb.x + px(6)}" y="${vb.y - kop + px(19)}" font-size="${px(16)}" font-weight="700" fill="#111827">` +
@@ -89,15 +129,16 @@ export function planSVG(canvas, { pxPerMeter = 80, titel = true } = {}) {
     s += `<line x1="${tx + k2}" y1="${ty}" x2="${tx + k2}" y2="${ty + th}" stroke="${r}" stroke-width="${px(1)}"/>`;
     const rg = (x, y, tekst, grootte, vet, kleur) =>
       `<text x="${x}" y="${y}" font-size="${px(grootte)}" ${vet ? 'font-weight="700" ' : ''}fill="${kleur}">${tekst}</text>`;
+    const inst = p.installateur || {};
     s += rg(tx + px(8), ty + px(16), 'Plaats van de elektrische installatie', 10.5, true, '#111827');
     s += rg(tx + px(14), ty + px(33), escape(p.klant || ''), 10.5, false, '#111827');
     s += rg(tx + px(14), ty + px(48), escape(p.adres || ''), 10.5, false, '#111827');
-    s += rg(tx + k1 + px(8), ty + px(16), 'Installatie', 10.5, true, '#111827');
-    s += rg(tx + k1 + px(14), ty + px(33), escape(p.naam || ''), 10.5, false, '#111827');
-    s += rg(tx + k1 + px(14), ty + px(48), `${store.project.kringen.length} kringen · ${store.project.componenten.filter((c) => def(c.type).kringtype !== 'bouw').length} punten`, 9.5, false, '#6b7280');
-    s += rg(tx + k2 + px(8), ty + px(16), 'Situatieschema', 10.5, true, '#111827');
-    s += rg(tx + k2 + px(8), ty + px(33), escape(niveau ? niveau.naam : ''), 10.5, false, '#111827');
-    s += rg(tx + k2 + px(8), ty + px(48), new Date().toLocaleDateString('nl-BE'), 9.5, false, '#6b7280');
+    s += rg(tx + k1 + px(8), ty + px(16), 'Installateur', 10.5, true, '#111827');
+    s += rg(tx + k1 + px(14), ty + px(33), escape(inst.naam || ''), 10.5, false, '#111827');
+    s += rg(tx + k1 + px(14), ty + px(48), [inst.btw, inst.telefoon].filter(Boolean).map(escape).join(' · '), 9.5, false, '#6b7280');
+    s += rg(tx + k2 + px(8), ty + px(16), `p. ${blad}/${bladen}`, 10.5, true, '#111827');
+    s += rg(tx + k2 + px(8), ty + px(33), `Situatieschema — ${escape(niveau ? niveau.naam : '')}`, 10.5, false, '#111827');
+    s += rg(tx + k2 + px(8), ty + px(48), `${p.net.fasen === 3 ? '3 x 400V + N' : '2 x 230V'} ~ 50Hz · ${new Date().toLocaleDateString('nl-BE')}`, 9.5, false, '#6b7280');
   }
   s += '</svg>';
   return s;
@@ -237,8 +278,8 @@ export function exporteerPNG(canvas, schaal = 2) {
 }
 
 /** Het eendraadschema als losstaande SVG, met vaste kleuren. */
-export function bordSVGBestand(project = store.project) {
-  const ruw = bouwBordSVG(project);
+export function bordSVGBestand(project = store.project, opties = {}) {
+  const ruw = bouwBordSVG(project, opties);
   return ruw.replace('<svg ', `<svg style="${kleurStijl()}" `);
 }
 
@@ -299,14 +340,12 @@ export function drukAf(canvas) {
   const bewaardNiveau = store.ui.niveauId;
 
   // één blad per verdieping
+  const totaal = p.plan.niveaus.length + 2;          // plannen + eendraadschema + lijst
   let bladen = '';
   p.plan.niveaus.forEach((niveau, i) => {
     store.ui.niveauId = niveau.id;
     bladen += `<div class="print-blad">
-      ${i === 0 ? `<h1>${escape(p.naam || 'Elektrisch dossier')}</h1>
-        <p class="print-meta">${[p.klant, p.adres].filter(Boolean).map(escape).join(' · ')} ${p.klant || p.adres ? '·' : ''} ${datum}</p>` : ''}
-      <h2>Situatieschema — ${escape(niveau.naam)}</h2>
-      <div class="print-plan">${planSVG(canvas, { pxPerMeter: 70, titel: false })}</div>
+      <div class="print-plan">${planSVG(canvas, { pxPerMeter: 70, titel: true, blad: i + 1, bladen: totaal })}</div>
     </div>`;
   });
   store.ui.niveauId = bewaardNiveau;
@@ -314,13 +353,13 @@ export function drukAf(canvas) {
   vlak.innerHTML = `
     ${bladen}
     <div class="print-blad">
-      <h2>Verdeelbord</h2>
-      <div class="print-bord">${bordSVGBestand(p)}</div>
+      <div class="print-bord">${bordSVGBestand(p, { blad: totaal - 1, bladen: totaal })}</div>
     </div>
     <div class="print-blad">
       <h2>Componenten per zekering</h2>
       <div class="print-lijst">${bouwBordTabel(p)}</div>
-      <p class="print-voet">Opgemaakt met Elek · ${datum} · controle op basis van gangbare AREI-vuistregels.</p>
+      <p class="print-voet">${escape(p.naam || '')} · p. ${totaal}/${totaal} · opgemaakt met Elek op ${datum} ·
+        controle op basis van gangbare AREI-vuistregels, geen keuringsverslag.</p>
     </div>`;
   document.body.classList.add('afdrukken');
   const opruimen = () => {

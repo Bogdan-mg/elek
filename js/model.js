@@ -151,6 +151,8 @@ export const KABELTABEL = [
 ];
 
 export const AMPERES = [2, 6, 10, 13, 16, 20, 25, 32, 40, 50, 63];
+export const KORTSLUIT = [1500, 3000, 4500, 6000, 10000];
+export const KABELTYPES = ['VOB', 'XVB', 'XGB', 'EXVB', 'H07V-U', 'XVB-F2'];
 export const SECTIES = KABELTABEL.map((k) => k.mm2);
 
 export function maxAmpVoor(mm2) {
@@ -216,9 +218,10 @@ export function nieuwProject(naam = 'Nieuw project') {
     naam,
     klant: '',
     adres: '',
+    installateur: { naam: '', btw: '', telefoon: '' },
     aangemaakt: nu,
     gewijzigd: nu,
-    net: { fasen: 1, spanning: 230, hoofdzekering: 40 },
+    net: { fasen: 1, spanning: 230, hoofdzekering: 40, kortsluit: 3000 },
     plan: {
       schaal: 1,           // meters per planeenheid (altijd 1, ruimte voor toekomstig gebruik)
       raster: 0.25,        // rasterafstand in meter
@@ -253,6 +256,13 @@ export function migreer(p) {
   p.kringen = p.kringen || [];
   p.differentiëlen = p.differentiëlen || p.differentielen || [];
   p.verbindingen = p.verbindingen || [];
-  p.net = p.net || { fasen: 1, spanning: 230, hoofdzekering: 40 };
+  p.installateur = p.installateur || { naam: '', btw: '', telefoon: '' };
+  p.net = p.net || { fasen: 1, spanning: 230, hoofdzekering: 40, kortsluit: 3000 };
+  if (!p.net.kortsluit) p.net.kortsluit = 3000;
+  for (const k of p.kringen || []) {
+    if (!k.kortsluit) k.kortsluit = p.net.kortsluit;
+    if (!k.kabel) k.kabel = 'VOB';
+  }
+  for (const d of p.differentiëlen || []) if (!d.kortsluit) d.kortsluit = p.net.kortsluit;
   return p;
 }

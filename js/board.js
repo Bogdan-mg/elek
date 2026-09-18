@@ -91,7 +91,7 @@ function ruimteVan(project, comp) {
 /* ------------------------------------------------------------------ *
  * Het schema
  * ------------------------------------------------------------------ */
-export function bouwBordSVG(project = store.project) {
+export function bouwBordSVG(project = store.project, { blad = 1, bladen: totaalBladen = 1 } = {}) {
   const fasen = project.net.fasen || 1;
 
   // 1. kringen per differentieel, met de letters van het bord
@@ -229,6 +229,8 @@ export function bouwBordSVG(project = store.project) {
           s += gedraaid(dx - 12, hoofdY - 6, escape(kort(kol.dif.naam, 14)), { vet: true, grootte: 10 });
           s += gedraaid(dx + 46, hoofdY - 6, `Δ${kol.dif.gevoeligheid} mA · type ${kol.dif.type || 'A'}`, { grootte: 9, kleur: kleur });
           s += gedraaid(dx + 58, hoofdY - 6, `${fasen === 3 ? '4P' : '2P'} - ${kol.dif.amp} A`, { grootte: 9, kleur: 'var(--tekst-zacht)' });
+          s += gedraaid(dx + 70, hoofdY - 6, kol.dif.kabel || (fasen === 3 ? 'XVB 4G10' : 'XVB 2G10'),
+            { grootte: 9, kleur: 'var(--tekst-zacht)' });
         } else {
           s += gedraaid(dx - 8, hoofdY - 8, 'zonder differentieel', { vet: true, grootte: 10, kleur: 'var(--fout)' });
         }
@@ -316,16 +318,17 @@ export function bouwBordSVG(project = store.project) {
   s += `<text x="${tx + 22}" y="${ty + 56}" font-size="10.5" fill="var(--tekst)">${escape(project.adres || '')}</text>`;
   s += `<text x="${tx + 14}" y="${ty + 80}" font-size="9" fill="var(--tekst-zacht)">` +
     `Opgemaakt met Elek · controle op basis van gangbare AREI-vuistregels, geen keuringsverslag.</text>`;
-  s += `<text x="${tx + kol1 + 14}" y="${ty + 20}" font-size="10.5" font-weight="700" fill="var(--tekst)">Installatie</text>`;
-  s += `<text x="${tx + kol1 + 22}" y="${ty + 40}" font-size="10.5" fill="var(--tekst)">${escape(project.naam || '')}</text>`;
+  const inst = project.installateur || {};
+  s += `<text x="${tx + kol1 + 14}" y="${ty + 20}" font-size="10.5" font-weight="700" fill="var(--tekst)">Installateur</text>`;
+  s += `<text x="${tx + kol1 + 22}" y="${ty + 40}" font-size="10.5" fill="var(--tekst)">${escape(inst.naam || '')}</text>`;
   s += `<text x="${tx + kol1 + 22}" y="${ty + 56}" font-size="10.5" fill="var(--tekst-zacht)">` +
-    `${project.kringen.length} kringen · ${project.componenten.filter((c) => def(c.type).kringtype !== 'bouw').length} componenten</text>`;
+    `${[inst.btw, inst.telefoon].filter(Boolean).map(escape).join(' · ')}</text>`;
   const datum = new Date(project.gewijzigd || Date.now()).toLocaleDateString('nl-BE');
-  s += `<text x="${tx + kol2 + 14}" y="${ty + 20}" font-size="10.5" font-weight="700" fill="var(--tekst)">Eendraadschema</text>`;
-  s += `<text x="${tx + kol2 + 14}" y="${ty + 40}" font-size="10.5" fill="var(--tekst)">` +
+  s += `<text x="${tx + kol2 + 14}" y="${ty + 20}" font-size="10.5" font-weight="700" fill="var(--tekst)">p. ${blad}/${totaalBladen}</text>`;
+  s += `<text x="${tx + kol2 + 14}" y="${ty + 38}" font-size="10.5" font-weight="700" fill="var(--tekst)">Eendraadschema</text>`;
+  s += `<text x="${tx + kol2 + 14}" y="${ty + 56}" font-size="10.5" fill="var(--tekst)">` +
     `${fasen === 3 ? '3 x 400V + N ~ 50Hz' : '2 x 230V ~ 50Hz'}</text>`;
-  s += `<text x="${tx + kol2 + 14}" y="${ty + 58}" font-size="10.5" fill="var(--tekst-zacht)">${datum}</text>`;
-  s += `<text x="${tx + kol2 + 14}" y="${ty + 76}" font-size="10.5" fill="var(--tekst-zacht)">blad 1/1</text>`;
+  s += `<text x="${tx + kol2 + 14}" y="${ty + 74}" font-size="10.5" fill="var(--tekst-zacht)">${datum}</text>`;
 
   s += '</svg>';
   return s;

@@ -28,6 +28,8 @@ export function maakKring(project, opties = {}) {
     curve: opties.curve || 'C',
     differentieelId: opties.differentieelId || (project.differentiëlen[0] && project.differentiëlen[0].id) || null,
     kleur: opties.kleur || volgendeKringKleur(project),
+    kortsluit: opties.kortsluit ?? (project.net && project.net.kortsluit) ?? 3000,
+    kabel: opties.kabel || 'VOB',
     opmerking: opties.opmerking || '',
   };
   project.kringen.push(kring);
@@ -87,6 +89,7 @@ function zorgVoorDifferentieel(project, gevoeligheid) {
       gevoeligheid,
       amp: 40,
       type: 'A',
+      kortsluit: (project.net && project.net.kortsluit) || 3000,
     };
     project.differentiëlen.push(dif);
   }

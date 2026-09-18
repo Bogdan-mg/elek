@@ -204,9 +204,10 @@ export class PlanCanvas {
       const h = Math.max(0.22, 13 / this.view.zoom);
       s += `<text x="${mid.x}" y="${naamY}" text-anchor="middle" font-size="${h}" fill="var(--tekst-plan)" ` +
         `font-family="system-ui, sans-serif" font-weight="600" style="pointer-events:none">${escape(naam)}</text>`;
-      if (store.ui.toonMaten || voorExport) {
+      if (store.ui.toonMaten) {
         s += `<text x="${mid.x}" y="${naamY + h * 1.25}" text-anchor="middle" font-size="${h * 0.8}" ` +
-          `fill="var(--tekst-plan-zacht)" font-family="system-ui, sans-serif" style="pointer-events:none">${opp.toFixed(1)} m²</text>`;
+          `fill="var(--tekst-plan-zacht)" font-family="system-ui, sans-serif" style="pointer-events:none">` +
+          `${opp.toFixed(1).replace('.', ',')} m²</text>`;
       }
     }
     return s;
@@ -541,7 +542,7 @@ export class PlanCanvas {
     return `<g transform="translate(${(a.x + b.x) / 2} ${(a.y + b.y) / 2}) rotate(${hoek})" style="pointer-events:none">` +
       `<text x="0" y="${-h * 0.42}" text-anchor="middle" font-size="${h}" fill="${kleur}" font-weight="600" ` +
       `font-family="system-ui, sans-serif" paint-order="stroke" stroke="var(--vlak)" stroke-width="${h * 0.3}" ` +
-      `stroke-linejoin="round">${len.toFixed(2)} m</text></g>`;
+      `stroke-linejoin="round">${len.toFixed(2).replace('.', ',')} m</text></g>`;
   }
 
   /** Lengte van een lijnstuk in meter. */

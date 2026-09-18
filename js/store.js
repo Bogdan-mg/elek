@@ -30,7 +30,7 @@ export const store = {
     bezigPolygoon: null,
     toonRaster: true,
     toonLabels: true,
-    toonMaten: true,
+    toonMaten: false,        // oppervlakte per ruimte, zoals Trikker standaard niet toont
     toonAlleMaten: false,
     bezigRechthoek: null,
     bezigMuur: null,

@@ -109,7 +109,10 @@ eendraadschema gelden voor de hele installatie.
   een differentieel van 30 mA voor vochtige ruimtes.
 * Zelf toewijzen: kies een kring (knop ◎) en klik of sleep over de componenten
   op het plan. Elke kring heeft een eigen kleur en nummer op het schema.
-* Per kring stel je automaat (A), kabelsectie (mm²), curve en differentieel in.
+* Per kring stel je automaat (A), kabelsectie (mm²), curve, kabeltype (VOB,
+  XVB …), kortsluitvermogen en differentieel in; die komen op het
+  eendraadschema te staan zoals `2P - C 16A`, `VOB 3G2,5` en het kadertje met
+  `3000`.
 * De **controlelijst** waarschuwt voor te veel punten op een kring, een te
   zware automaat voor de gekozen kabel, een ontbrekend differentieel, een
   vochtige ruimte zonder 30 mA, en toestellen die een eigen kring horen te
@@ -141,6 +144,14 @@ de aftakking op het eendraadschema en in de lijst per zekering, zodat beide
 tekeningen naar hetzelfde punt verwijzen. De letters lopen zoals op het bord:
 `A` is de hoofdautomaat met differentieel, daarna krijgt elk differentieel en
 elke kring de volgende letter.
+
+### Titelhoek en paginanummers
+Bij export en afdruk krijgen beide tekeningen de titelhoek van een dossier:
+*Plaats van de elektrische installatie* (klant en adres), *Installateur*
+(firmanaam, btw-nummer en telefoon, in te vullen bij de projectgegevens) en
+rechts `p. x/y`, het soort schema, de spanning en de datum. Rond het
+situatieschema staan maatlijnen met de totale breedte en diepte, in Belgische
+notatie (`9,00 m`).
 
 ### Zwart-wit
 De tekeningen zijn standaard **zwart-wit**, zoals een dossier hoort af te
