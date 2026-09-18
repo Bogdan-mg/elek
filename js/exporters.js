@@ -2,7 +2,8 @@
 
 import store from './store.js';
 import { omhullende } from './geometry.js';
-import { bouwBordSVG, bouwBordTabel } from './board.js';
+import { bouwBordSVG, bouwBordTabel, bordAantalBladen } from './board.js';
+import { BLAD, bladVak, bladKader, bladInhoud } from './blad.js';
 import { escape } from './canvas.js';
 import { migreer, def } from './model.js';
 
@@ -88,58 +89,44 @@ function maatlijnen(vb, px) {
   return s;
 }
 
-/** Losstaande SVG van het situatieschema, met titelhoek zoals op een dossier. */
-export function planSVG(canvas, { pxPerMeter = 80, titel = true, blad = 1, bladen = 1 } = {}) {
+/** Het situatieschema op een tekenblad, met kader en titelhoek. */
+export function planSVG(canvas, { pxPerMeter = null, kader = true, blad = 1, bladen = 1 } = {}) {
   const vb = planOmhullende(1.1);
+  if (!pxPerMeter) {
+    // het plan zo groot mogelijk op het blad, maar met leesbare lijndiktes
+    const vak = bladVak();
+    pxPerMeter = Math.max(24, Math.min(150, Math.min(vak.w / vb.w, vak.h / vb.h)));
+  }
   const bewaardeZoom = canvas.view.zoom;
   canvas.view.zoom = pxPerMeter;
   const inhoud = canvas.bouw({ vb, voorExport: true });
   canvas.view.zoom = bewaardeZoom;
 
-  const p = store.project;
-  const niveau = store.niveau;
   const px = (n) => n / pxPerMeter;                          // beeldpunten naar meter
-  const voet = titel ? px(78) : 0;                           // titelhoek onderaan
-  const kop = titel ? px(30) : 0;                            // naam van de verdieping
-  const totaalH = vb.h + voet + kop;
-  const w = vb.w * pxPerMeter;
-  const h = totaalH * pxPerMeter;
-  const e = px(10);                                          // eenheid voor de titelhoek
+  const niveau = store.niveau;
 
-  let s = `<svg xmlns="http://www.w3.org/2000/svg" width="${Math.round(w)}" height="${Math.round(h)}" ` +
-    `viewBox="${vb.x} ${vb.y - kop} ${vb.w} ${totaalH}" style="${kleurStijl()}" font-family="system-ui, sans-serif">`;
-  s += `<rect x="${vb.x}" y="${vb.y - kop}" width="${vb.w}" height="${totaalH}" fill="#ffffff"/>`;
-  s += maatlijnen(vb, px);
-
-  if (titel && niveau) {
-    s += `<text x="${vb.x + px(6)}" y="${vb.y - kop + px(19)}" font-size="${px(16)}" font-weight="700" fill="#111827">` +
-      `${escape(niveau.naam)}</text>`;
+  if (!kader) {
+    // kale tekening zonder blad, op ware grootte
+    const w = Math.round(vb.w * pxPerMeter), h = Math.round(vb.h * pxPerMeter);
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" ` +
+      `viewBox="${vb.x} ${vb.y} ${vb.w} ${vb.h}" style="${kleurStijl()}" font-family="system-ui, sans-serif">` +
+      `<rect x="${vb.x}" y="${vb.y}" width="${vb.w}" height="${vb.h}" fill="#ffffff"/>` +
+      maatlijnen(vb, px) + inhoud + '</svg>';
   }
-  s += inhoud;
 
-  if (titel) {
-    const ty = vb.y + vb.h + px(10);
-    const th = px(62);
-    const tb = vb.w - px(12);
-    const tx = vb.x + px(6);
-    const k1 = tb * 0.5, k2 = tb * 0.78;
-    const r = '#9ca3af';
-    s += `<rect x="${tx}" y="${ty}" width="${tb}" height="${th}" fill="none" stroke="${r}" stroke-width="${px(1)}"/>`;
-    s += `<line x1="${tx + k1}" y1="${ty}" x2="${tx + k1}" y2="${ty + th}" stroke="${r}" stroke-width="${px(1)}"/>`;
-    s += `<line x1="${tx + k2}" y1="${ty}" x2="${tx + k2}" y2="${ty + th}" stroke="${r}" stroke-width="${px(1)}"/>`;
-    const rg = (x, y, tekst, grootte, vet, kleur) =>
-      `<text x="${x}" y="${y}" font-size="${px(grootte)}" ${vet ? 'font-weight="700" ' : ''}fill="${kleur}">${tekst}</text>`;
-    const inst = p.installateur || {};
-    s += rg(tx + px(8), ty + px(16), 'Plaats van de elektrische installatie', 10.5, true, '#111827');
-    s += rg(tx + px(14), ty + px(33), escape(p.klant || ''), 10.5, false, '#111827');
-    s += rg(tx + px(14), ty + px(48), escape(p.adres || ''), 10.5, false, '#111827');
-    s += rg(tx + k1 + px(8), ty + px(16), 'Installateur', 10.5, true, '#111827');
-    s += rg(tx + k1 + px(14), ty + px(33), escape(inst.naam || ''), 10.5, false, '#111827');
-    s += rg(tx + k1 + px(14), ty + px(48), [inst.btw, inst.telefoon].filter(Boolean).map(escape).join(' · '), 9.5, false, '#6b7280');
-    s += rg(tx + k2 + px(8), ty + px(16), `p. ${blad}/${bladen}`, 10.5, true, '#111827');
-    s += rg(tx + k2 + px(8), ty + px(33), `Situatieschema — ${escape(niveau ? niveau.naam : '')}`, 10.5, false, '#111827');
-    s += rg(tx + k2 + px(8), ty + px(48), `${p.net.fasen === 3 ? '3 x 400V + N' : '2 x 230V'} ~ 50Hz · ${new Date().toLocaleDateString('nl-BE')}`, 9.5, false, '#6b7280');
-  }
+  // de tekening in beeldpunten, zodat ze in het vak van het blad past
+  const tekening = `<g transform="scale(${pxPerMeter}) translate(${-vb.x} ${-vb.y})">` +
+    maatlijnen(vb, px) + inhoud + '</g>';
+
+  let s = `<svg xmlns="http://www.w3.org/2000/svg" width="${BLAD.breedte}" height="${BLAD.hoogte}" ` +
+    `viewBox="0 0 ${BLAD.breedte} ${BLAD.hoogte}" style="${kleurStijl()}" font-family="system-ui, sans-serif">`;
+  s += bladKader({
+    project: store.project,
+    soort: 'Situatieschema',
+    subtitel: niveau ? niveau.naam : '',
+    blad, bladen,
+  });
+  s += bladInhoud({ inhoud: tekening, bw: vb.w * pxPerMeter, bh: vb.h * pxPerMeter });
   s += '</svg>';
   return s;
 }
@@ -339,22 +326,27 @@ export function drukAf(canvas) {
   const datum = new Date().toLocaleDateString('nl-BE');
   const bewaardNiveau = store.ui.niveauId;
 
-  // één blad per verdieping
-  const totaal = p.plan.niveaus.length + 2;          // plannen + eendraadschema + lijst
-  let bladen = '';
+  // één blad per verdieping, dan de bladen van het eendraadschema, dan de lijst
+  const planBladen = p.plan.niveaus.length;
+  const schemaBladen = bordAantalBladen(p);
+  const totaal = planBladen + schemaBladen + 1;
+  let paginas = '';
   p.plan.niveaus.forEach((niveau, i) => {
     store.ui.niveauId = niveau.id;
-    bladen += `<div class="print-blad">
-      <div class="print-plan">${planSVG(canvas, { pxPerMeter: 70, titel: true, blad: i + 1, bladen: totaal })}</div>
+    paginas += `<div class="print-blad print-tekening">
+      <div class="print-plan">${planSVG(canvas, { blad: i + 1, bladen: totaal })}</div>
     </div>`;
   });
   store.ui.niveauId = bewaardNiveau;
 
+  for (let i = 1; i <= schemaBladen; i++) {
+    paginas += `<div class="print-blad print-tekening">
+      <div class="print-bord">${bordSVGBestand(p, { blad: i, paginaVanaf: planBladen + 1, paginaTotaal: totaal })}</div>
+    </div>`;
+  }
+
   vlak.innerHTML = `
-    ${bladen}
-    <div class="print-blad">
-      <div class="print-bord">${bordSVGBestand(p, { blad: totaal - 1, bladen: totaal })}</div>
-    </div>
+    ${paginas}
     <div class="print-blad">
       <h2>Componenten per zekering</h2>
       <div class="print-lijst">${bouwBordTabel(p)}</div>

@@ -69,6 +69,20 @@ controleer('eendraadschema wordt getekend', bord.er);
 controleer('eendraadschema toont kabel en automaat', bord.tekst.includes('VOB') && bord.tekst.includes('C'));
 controleer('lijst per zekering is gevuld', bord.kaarten > 5, `${bord.kaarten} kaarten`);
 
+const bladInfo = await page.evaluate(() => {
+  const svg = document.querySelector('#bord-schema svg');
+  return {
+    breedte: svg ? svg.getAttribute('width') : '',
+    titelhoek: svg ? svg.textContent.includes('Plaats van de elektrische installatie') : false,
+    pagina: svg ? /p\. \d+\/\d+/.test(svg.textContent) : false,
+    knoppen: document.querySelectorAll('#bord-bladen button').length,
+  };
+});
+controleer('schema staat op bladen met titelhoek', bladInfo.titelhoek && bladInfo.pagina,
+  `blad ${bladInfo.breedte} px breed`);
+controleer('bladen zijn apart te kiezen', bladInfo.knoppen === 0 || bladInfo.knoppen >= 3,
+  `${bladInfo.knoppen} knoppen`);
+
 // 4. eigenschappen per symbool
 await page.click('[data-app="weergave"][data-weergave="plan"]');
 await page.click('[data-app="stap"][data-stap="2"]');
@@ -91,8 +105,16 @@ await page.evaluate(() => { window.print = () => {}; });
 await page.click('[data-app="menu"]');
 await page.click('[data-app="print"]');
 await page.waitForTimeout(400);
-const bladen = await page.evaluate(() => document.querySelectorAll('.print-blad').length);
-controleer('afdruk maakt bladen', bladen >= 3, `${bladen} bladen`);
+const afdruk = await page.evaluate(() => ({
+  bladen: document.querySelectorAll('.print-blad').length,
+  tekeningen: document.querySelectorAll('.print-blad.print-tekening svg').length,
+  laatste: (document.querySelector('.print-voet') || {}).textContent || '',
+}));
+controleer('afdruk maakt bladen', afdruk.bladen >= 3, `${afdruk.bladen} bladen`);
+controleer('elk tekenblad is een apart blad', afdruk.tekeningen === afdruk.bladen - 1,
+  `${afdruk.tekeningen} tekeningen`);
+controleer('paginanummering loopt door',
+  afdruk.laatste.includes(`p. ${afdruk.bladen}/${afdruk.bladen}`));
 
 await page.reload({ waitUntil: 'networkidle' });
 await page.waitForTimeout(500);

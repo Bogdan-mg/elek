@@ -343,17 +343,18 @@ kbd { background: var(--vlak-3); border: 1px solid var(--rand); border-radius: 5
 .print-vlak { display: none; }
 
 @media print {
-  @page { size: A4 landscape; margin: 12mm; }
+  @page { size: A3 landscape; margin: 0; }
   body.afdrukken .werkbalk,
   body.afdrukken .werkvlak { display: none !important; }
   body.afdrukken { overflow: visible; background: #fff; color: #000; }
   body.afdrukken .print-vlak { display: block; }
-  .print-blad { break-after: page; page-break-after: always; }
+  .print-blad { break-after: page; page-break-after: always; padding: 12mm; }
+  .print-blad.print-tekening { padding: 0; }
   .print-blad:last-child { break-after: auto; page-break-after: auto; }
   .print-blad h1 { font-size: 18pt; margin: 0 0 2mm; }
   .print-blad h2 { font-size: 13pt; margin: 0 0 3mm; }
   .print-meta { font-size: 9pt; color: #555; margin: 0 0 5mm; }
-  .print-plan svg, .print-bord svg { max-width: 100%; height: auto; }
+  .print-plan svg, .print-bord svg { display: block; width: 100%; height: auto; }
   .print-lijst .kring-kaart { border: 1px solid #bbb; break-inside: avoid; page-break-inside: avoid; background: #fff; }
   .print-voet { font-size: 8pt; color: #666; margin-top: 6mm; }
 }
@@ -396,7 +397,9 @@ kbd { background: var(--vlak-3); border: 1px solid var(--rand); border-radius: 5
 
 .bord-kop { display: flex; align-items: flex-start; gap: 16px; margin-bottom: 12px; }
 .bord-kop h2 { margin: 0; }
-.bord-knoppen { margin-left: auto; display: flex; gap: 6px; flex: none; }
+.bord-knoppen { margin-left: auto; display: flex; gap: 6px; flex: none; align-items: center; }
+.bord-bladen { display: flex; gap: 4px; margin-right: 8px; }
+.bord-bladen button.actief { background: var(--accent-zacht); border-color: var(--accent); color: var(--accent); font-weight: 600; }
 .bord-schema.passend svg { width: 100%; height: auto; }
 
 /* Verdiepingen */

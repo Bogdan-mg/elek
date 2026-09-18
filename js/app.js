@@ -3,7 +3,7 @@
 import store from './store.js';
 import { PlanCanvas } from './canvas.js';
 import { tekenLinks, tekenRechts, bindPanelen, koppelCanvas, verwijderSelectie, dupliceerSelectie } from './panels.js';
-import { bouwBordSVG, bouwBordTabel } from './board.js';
+import { bouwBordSVG, bouwBordTabel, bordAantalBladen } from './board.js';
 import {
   exporteerProject, importeerProject, exporteerPNG, exporteerSVG,
   exporteerBordPNG, exporteerBordSVG, drukAf, drukAfLegende, importeerOnderlaag,
@@ -95,6 +95,10 @@ function bindWerkbalk() {
       case 'niveau-nieuw': nieuwNiveau(); break;
       case 'onderlaag': $('#onderlaag-invoer').click(); break;
       case 'voorbeeld': laadVoorbeeld(); break;
+      case 'bord-blad':
+        bordBlad = Number(knop.dataset.nr) || null;
+        tekenBord();
+        break;
       case 'bord-passend':
         $('#bord-schema').classList.add('passend');
         try { localStorage.setItem('elek.bordPassend', '1'); } catch (e) { /* geen opslag */ }
@@ -266,12 +270,25 @@ function tekenNiveaus() {
   balk.hidden = store.ui.weergave === 'bord';
 }
 
+let bordBlad = null;                 // null = alle bladen onder elkaar
+
 function tekenBord() {
   const vlak = $('#bord-schema');
-  vlak.innerHTML = bouwBordSVG(store.project);
+  const aantal = bordAantalBladen(store.project);
+  if (bordBlad && bordBlad > aantal) bordBlad = null;
+  vlak.innerHTML = bouwBordSVG(store.project, bordBlad ? { blad: bordBlad } : {});
   let passend = true;
   try { passend = localStorage.getItem('elek.bordPassend') !== '0'; } catch (e) { /* geen opslag */ }
   vlak.classList.toggle('passend', passend);
+
+  const balk = $('#bord-bladen');
+  if (balk) {
+    balk.innerHTML = aantal > 1
+      ? `<button class="mini ${bordBlad ? '' : 'actief'}" data-app="bord-blad" data-nr="0">Alle</button>` +
+        Array.from({ length: aantal }, (_, i) =>
+          `<button class="mini ${bordBlad === i + 1 ? 'actief' : ''}" data-app="bord-blad" data-nr="${i + 1}">Blad ${i + 1}</button>`).join('')
+      : '';
+  }
   $('#bord-lijst').innerHTML = bouwBordTabel(store.project);
 }
 

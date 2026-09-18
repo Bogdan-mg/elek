@@ -9,7 +9,7 @@ browsers ES-modules blokkeren op file://.
 import re, pathlib, base64
 
 WORTEL = pathlib.Path(__file__).resolve().parent.parent
-VOLGORDE = ['geometry', 'model', 'symbols', 'store', 'circuits', 'indeling', 'canvas', 'board', 'panels', 'exporters', 'app']
+VOLGORDE = ['geometry', 'model', 'symbols', 'store', 'circuits', 'indeling', 'canvas', 'blad', 'board', 'panels', 'exporters', 'app']
 
 def strip_module(bron: str) -> str:
     bron = re.sub(r"^import\s+[^;]*?from\s+'[^']+';\s*$", '', bron, flags=re.M | re.S)
