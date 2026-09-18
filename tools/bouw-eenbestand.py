@@ -43,7 +43,6 @@ def main():
                         f'<link rel="icon" href="data:image/svg+xml;base64,{icoon}">')
     html = html.replace('<link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">', '')
     html = html.replace('<script type="module" src="./js/app.js"></script>', '<script>\n' + js + '\n</script>')
-    html = html.replace('<title>Elek —', '<title>Elek (één bestand) —')
 
     doel = WORTEL / 'elek-eenbestand.html'
     doel.write_text(html)
