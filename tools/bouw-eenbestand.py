@@ -9,7 +9,7 @@ browsers ES-modules blokkeren op file://.
 import re, pathlib, base64
 
 WORTEL = pathlib.Path(__file__).resolve().parent.parent
-VOLGORDE = ['geometry', 'model', 'symbols', 'store', 'circuits', 'canvas', 'board', 'panels', 'exporters', 'app']
+VOLGORDE = ['geometry', 'model', 'symbols', 'store', 'circuits', 'indeling', 'canvas', 'board', 'panels', 'exporters', 'app']
 
 def strip_module(bron: str) -> str:
     bron = re.sub(r"^import\s+[^;]*?from\s+'[^']+';\s*$", '', bron, flags=re.M | re.S)
@@ -17,7 +17,18 @@ def strip_module(bron: str) -> str:
     bron = re.sub(r"^export\s+(?=(const|let|var|function|class|async))", '', bron, flags=re.M)
     return bron.strip()
 
+def controleer_volgorde():
+    """Elke module moet in VOLGORDE staan, anders ontbreekt ze in het bestand."""
+    bestaand = sorted(p.stem for p in (WORTEL / 'js').glob('*.js'))
+    ontbreekt = [naam for naam in bestaand if naam not in VOLGORDE]
+    onbekend = [naam for naam in VOLGORDE if naam not in bestaand]
+    if ontbreekt or onbekend:
+        raise SystemExit(
+            'VOLGORDE klopt niet met js/: ontbreekt ' + str(ontbreekt) + ', onbekend ' + str(onbekend))
+
+
 def main():
+    controleer_volgorde()
     html = (WORTEL / 'index.html').read_text()
     css = (WORTEL / 'css/app.css').read_text()
     js = '\n\n'.join(
