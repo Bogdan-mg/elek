@@ -20,6 +20,8 @@ const EXPORT_KLEUREN = {
   '--raster-groot': '#e5e7eb',
   '--raster-fijn': '#f3f4f6',
   '--vlak': '#ffffff',
+  '--vlak-2': '#fbfbfc',
+  '--vlak-3': '#f3f4f6',
   '--tekst': '#111827',
   '--tekst-zacht': '#6b7280',
   '--fout': '#dc2626',

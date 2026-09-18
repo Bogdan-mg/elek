@@ -414,3 +414,5 @@ kbd { background: var(--vlak-3); border: 1px solid var(--rand); border-radius: 5
 .niveaubalk button:hover:not(.actief) { background: var(--vlak-3); }
 
 .puntcode { font-size: 11px; color: var(--tekst-zacht); font-weight: 700; }
+
+.kring-nr.vlak { background: var(--tekst); }

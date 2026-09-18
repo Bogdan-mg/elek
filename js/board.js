@@ -221,12 +221,12 @@ export function bouwBordSVG(project = store.project) {
         // verticale verbinding met de hoofdleiding, met het differentieel erin
         s += `<line x1="${dx}" y1="${hoofdY}" x2="${dx}" y2="${railY}" stroke="${LIJN}" stroke-width="2"/>`;
         if (kol.dif) {
-          const kleur = kol.dif.gevoeligheid <= 30 ? 'var(--accent)' : LIJN;
+          const kleur = store.ui.kleurPerKring && kol.dif.gevoeligheid <= 30 ? 'var(--accent)' : LIJN;
           s += hefboom(dx, hoofdY - 40, kleur, 2.2);
-          s += `<text x="${dx - 26}" y="${hoofdY - 34}" font-size="11" font-weight="700" fill="var(--tekst)">` +
-            `${indeling.difLetter.get(kol.dif.id) || ''}</text>`;
+          s += `<text x="${dx - 30}" y="${hoofdY - 46}" text-anchor="end" font-size="12" font-weight="700" ` +
+            `fill="var(--tekst)">${indeling.difLetter.get(kol.dif.id) || ''}</text>`;
           s += kortsluitvak(dx + 8, hoofdY - 20, kol.dif.kortsluit || 3000);
-          s += gedraaid(dx - 10, hoofdY - 6, escape(kort(kol.dif.naam, 13)), { vet: true, grootte: 10 });
+          s += gedraaid(dx - 12, hoofdY - 6, escape(kort(kol.dif.naam, 14)), { vet: true, grootte: 10 });
           s += gedraaid(dx + 46, hoofdY - 6, `Δ${kol.dif.gevoeligheid} mA · type ${kol.dif.type || 'A'}`, { grootte: 9, kleur: kleur });
           s += gedraaid(dx + 58, hoofdY - 6, `${fasen === 3 ? '4P' : '2P'} - ${kol.dif.amp} A`, { grootte: 9, kleur: 'var(--tekst-zacht)' });
         } else {
@@ -251,9 +251,16 @@ export function bouwBordSVG(project = store.project) {
       // automaat met kringletter, kortsluitvermogen en aanduiding
       s += hefboom(x, railY - 16, LIJN, 2);
       const letter = indeling.kringLetter.get(k.id) || String(k.nummer);
-      s += `<circle cx="${x - 26}" cy="${railY - 14}" r="10" fill="${k.kleur}"/>`;
-      s += `<text x="${x - 26}" y="${railY - 14}" text-anchor="middle" dominant-baseline="central" ` +
-        `font-size="11" font-weight="700" fill="#fff">${letter}</text>`;
+      const kleurKring = store.ui.kleurPerKring ? k.kleur : LIJN;
+      if (store.ui.kleurPerKring) {
+        s += `<circle cx="${x - 26}" cy="${railY - 14}" r="10" fill="${k.kleur}"/>`;
+        s += `<text x="${x - 26}" y="${railY - 14}" text-anchor="middle" dominant-baseline="central" ` +
+          `font-size="11" font-weight="700" fill="#fff">${letter}</text>`;
+      } else {
+        s += `<text x="${x - 24}" y="${railY - 10}" text-anchor="middle" font-size="13" font-weight="700" ` +
+          `fill="var(--tekst)">${letter}</text>`;
+      }
+      void kleurKring;
       s += kortsluitvak(x + 6, railY - 24, k.kortsluit || 3000);
       s += gedraaid(x + 42, railY - 6, `${polen(k, fasen)} - ${k.curve || 'C'} ${k.amp}A`, { grootte: 9.5 });
 

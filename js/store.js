@@ -35,7 +35,8 @@ export const store = {
     bezigRechthoek: null,
     bezigMuur: null,
     lengteInvoer: '',
-    kleurPerKring: false,
+    kleurPerKring: false,      // tekeningen zijn standaard zwart-wit
+    kleurRuimtes: false,
     toonKringnummers: true,
     filterGroep: 'alle',
     niveauId: null,

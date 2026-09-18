@@ -186,8 +186,10 @@ export class PlanCanvas {
     // Naam iets onder het midden: het plafondlichtpunt staat meestal in het midden.
     const naamY = mid.y + Math.min(box.h * 0.22, 0.9);
     const dikte = r.muurdikte || 0.09;
+    const vulling = store.ui.kleurRuimtes ? (r.kleur || d.kleur) : 'var(--vlak)';
     let s = `<polygon data-kind="ruimte" data-id="${r.id}" points="${punten}" ` +
-      `fill="${r.kleur || d.kleur}" fill-opacity="0.85" stroke="${gesel ? 'var(--accent)' : 'var(--muur)'}" ` +
+      `fill="${vulling}" fill-opacity="${store.ui.kleurRuimtes ? 0.85 : 1}" ` +
+      `stroke="${gesel ? 'var(--accent)' : 'var(--muur)'}" ` +
       `stroke-width="${gesel ? lijn * 3 : dikte}" stroke-linejoin="miter"/>`;
     if (!gesel && dikte > lijn * 3) {
       // binnenkant van de muur lichter, zodat de muur als band leest
@@ -297,9 +299,14 @@ export class PlanCanvas {
     if (d.kringtype === 'bouw') return c.type === 'trap' ? this.trapSVG(c, lijn, voorExport) : this.bouwSVG(c, lijn, voorExport);
     const kring = c.kringId && store.project.kringen.find((k) => k.id === c.kringId);
     const gesel = !voorExport && store.isGeselecteerd(c.id);
-    const kleurPerKring = store.ui.kleurPerKring || store.ui.stap === 3;
+    const kleurPerKring = store.ui.kleurPerKring;
+    const werktAanKring = store.ui.stap === 3 && !voorExport;
     let kleur = 'var(--symbool)';
     if (kleurPerKring) kleur = kring ? kring.kleur : 'var(--geen-kring)';
+    // In stap 3 licht de kring waaraan je werkt op, zonder kleurcodes
+    const actiefInKring = werktAanKring && store.ui.actieveKring && c.kringId === store.ui.actieveKring;
+    const zonderKring = werktAanKring && !c.kringId && d.kringtype !== 'bouw' && d.kringtype !== 'zwakstroom' && d.kringtype !== 'verdeling';
+    if (actiefInKring) kleur = 'var(--accent)';
     const schaal = symM / 100;
     const hit = Math.max(symM * 0.85, 14 / this.view.zoom);
 
@@ -307,21 +314,28 @@ export class PlanCanvas {
       `transform="translate(${c.x} ${c.y}) rotate(${c.rot || 0})">`;
     if (gesel) {
       s += `<circle cx="0" cy="0" r="${hit}" fill="var(--accent)" fill-opacity="0.18" stroke="var(--accent)" stroke-width="${lijn}"/>`;
+    } else if (actiefInKring) {
+      s += `<circle cx="0" cy="0" r="${hit}" fill="var(--accent)" fill-opacity="0.12" stroke="none"/>`;
+    } else if (zonderKring) {
+      s += `<circle cx="0" cy="0" r="${hit}" fill="none" stroke="var(--geen-kring)" stroke-width="${lijn}" ` +
+        `stroke-dasharray="${lijn * 3} ${lijn * 3}"/>`;
     }
     s += `<g transform="scale(${schaal})" fill="none" stroke="${kleur}" stroke-width="${(lijn / schaal) * 1.15}">${symbool(c.type, -(c.rot || 0))}</g>`;
     if (!voorExport) s += `<circle cx="0" cy="0" r="${hit}" fill="transparent" class="hit"/>`;
     s += '</g>';
 
     // Label / kringnummer los van de rotatie
-    const toonKring = (store.ui.stap === 3 || kleurPerKring || store.ui.toonKringnummers) && kring;
+    const toonKring = (werktAanKring || kleurPerKring || store.ui.toonKringnummers) && kring;
     if ((store.ui.toonLabels || voorExport) && (c.label || toonKring)) {
       const h = Math.max(0.17, 11 / this.view.zoom);
       const code = (this._indeling && this._indeling.puntcode.get(c.id)) || (kring ? String(kring.nummer) : '');
       const tekst = toonKring ? `${code}${c.label ? ' · ' + c.label : ''}` : c.label;
       const onder = d.wand !== false;
       const ty = onder ? c.y + symM * 0.95 + h : c.y - symM * 0.95 - h * 0.4;
+      const codeKleur = kleurPerKring && kring ? kring.kleur
+        : (actiefInKring ? 'var(--accent)' : 'var(--tekst-plan)');
       s += `<text x="${c.x}" y="${ty}" text-anchor="middle" font-size="${h}" ` +
-        `fill="${toonKring ? kring.kleur : 'var(--tekst-plan-zacht)'}" font-weight="600" ` +
+        `fill="${codeKleur}" font-weight="600" ` +
         `font-family="system-ui, sans-serif" style="pointer-events:none">${escape(String(tekst))}</text>`;
     }
     return s;

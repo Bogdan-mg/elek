@@ -13,7 +13,7 @@ import {
   autoVerdeel, controleer, maxPuntenVan, totaalVermogen, heeftKringNodig,
 } from './circuits.js';
 import { oppervlakte, omhullende, afstand, segmenten } from './geometry.js';
-import { bordIndeling } from './indeling.js';
+import { bordIndeling, banden } from './indeling.js';
 
 /** Omtrek van een polygoon. */
 function omtrek(punten) {
@@ -109,6 +109,7 @@ function paneelPlattegrond() {
     <label class="schakel"><input type="checkbox" data-actie="ui" data-veld="toonLabels" ${store.ui.toonLabels ? 'checked' : ''}> Namen tonen</label>
     <label class="schakel"><input type="checkbox" data-actie="ui" data-veld="toonMaten" ${store.ui.toonMaten ? 'checked' : ''}> Oppervlakte tonen</label>
     <label class="schakel"><input type="checkbox" data-actie="ui" data-veld="toonAlleMaten" ${store.ui.toonAlleMaten ? 'checked' : ''}> Alle zijdematen tonen</label>
+    <label class="schakel"><input type="checkbox" data-actie="ui" data-veld="kleurRuimtes" ${store.ui.kleurRuimtes ? 'checked' : ''}> Ruimtes inkleuren</label>
     <label class="veld"><span>Raster (m)</span>
       <select data-actie="raster">${[0.05, 0.1, 0.25, 0.5, 1].map((v) => `<option value="${v}"${p.plan.raster === v ? ' selected' : ''}>${v} m</option>`).join('')}</select></label>`;
   return h;
@@ -194,15 +195,19 @@ function paneelKringen() {
   }
   h += '</ul>';
 
+  const letters = bordIndeling(p);
+  // zelfde volgorde als op het bord: per differentieel, zodat de letters oplopen
+  const opVolgorde = banden(p).flatMap((b) => b.kringen);
   h += `<div class="lijst-kop"><h3>Kringen (${p.kringen.length})</h3></div><ul class="lijst kringen">`;
   if (!p.kringen.length) h += '<li class="leeg">Nog geen kringen. Gebruik “Automatisch verdelen” voor een eerste voorstel.</li>';
-  for (const k of p.kringen) {
+  for (const k of opVolgorde) {
     const comps = componentenVanKring(p, k.id);
     const punten = puntenInKring(p, k.id);
     const max = maxPuntenVan(k);
     const tevol = max && punten > max;
+    const letter = letters.kringLetter.get(k.id) || String(k.nummer);
     h += `<li class="kring-rij${ui.actieveKring === k.id ? ' actief' : ''}" data-actie="kies-kring" data-id="${k.id}">
-      <span class="kring-nr" style="background:${k.kleur}">${k.nummer}</span>
+      <span class="kring-nr${ui.kleurPerKring ? '' : ' vlak'}"${ui.kleurPerKring ? ` style="background:${k.kleur}"` : ''}>${letter}</span>
       <span class="kring-info">
         <input class="inline-invoer" value="${escape(k.naam)}" data-actie="kring-naam" data-id="${k.id}">
         <span class="rij-meta">${k.amp} A · ${k.mm2} mm² · ${comps.length} comp.${max ? ` · <span class="${tevol ? 'fout-tekst' : ''}">${punten}/${max} pt</span>` : ''}</span>
@@ -271,7 +276,7 @@ export function tekenRechts() {
 
 function kringKeuze(huidig, actie = 'comp-kring') {
   const opties = store.project.kringen
-    .map((k) => `<option value="${k.id}"${huidig === k.id ? ' selected' : ''}>${k.nummer} · ${escape(k.naam)} (${k.amp}A)</option>`)
+    .map((k) => `<option value="${k.id}"${huidig === k.id ? ' selected' : ''}>${bordIndeling(store.project).kringLetter.get(k.id) || k.nummer} · ${escape(k.naam)} (${k.amp}A)</option>`)
     .join('');
   return `<select data-actie="${actie}"><option value="">— geen kring —</option>${opties}</select>`;
 }
@@ -415,8 +420,9 @@ function paneelProject() {
       <div><strong>${p.kringen.length}</strong><span>kringen</span></div>
       <div><strong>${(totaalVermogen(p) / 1000).toFixed(1)}</strong><span>kW geschat</span></div>
     </div>
-    <label class="schakel"><input type="checkbox" data-actie="ui" data-veld="kleurPerKring" ${store.ui.kleurPerKring ? 'checked' : ''}> Kleur per kring tonen</label>
-    <label class="schakel"><input type="checkbox" data-actie="ui" data-veld="toonKringnummers" ${store.ui.toonKringnummers ? 'checked' : ''}> Kringnummer bij elk symbool</label>
+    <label class="schakel"><input type="checkbox" data-actie="ui" data-veld="toonKringnummers" ${store.ui.toonKringnummers ? 'checked' : ''}> Puntcode bij elk symbool</label>
+    <label class="schakel"><input type="checkbox" data-actie="ui" data-veld="kleurPerKring" ${store.ui.kleurPerKring ? 'checked' : ''}> Kleur per kring (anders zwart-wit)</label>
+    <label class="schakel"><input type="checkbox" data-actie="ui" data-veld="kleurRuimtes" ${store.ui.kleurRuimtes ? 'checked' : ''}> Ruimtes inkleuren</label>
     ${fouten ? `<p class="melding fout">${fouten} fout(en) in de controle — zie stap 3.</p>` : ''}
     <div class="knop-rij"><button class="knop" data-actie="zoom-alles">Alles in beeld</button></div>`;
 }

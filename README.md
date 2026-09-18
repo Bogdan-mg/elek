@@ -142,6 +142,15 @@ tekeningen naar hetzelfde punt verwijzen. De letters lopen zoals op het bord:
 `A` is de hoofdautomaat met differentieel, daarna krijgt elk differentieel en
 elke kring de volgende letter.
 
+### Zwart-wit
+De tekeningen zijn standaard **zwart-wit**, zoals een dossier hoort af te
+drukken: witte ruimtes, muren als grijze band, zwarte symbolen en zwarte
+puntcodes. In de weergave-instellingen kan je *Kleur per kring* aanzetten (elk
+symbool, de puntcode en de kringletter krijgen dan de kleur van hun kring) en
+*Ruimtes inkleuren*. In stap 3 licht de kring waaraan je werkt op, en
+componenten zonder kring krijgen een stippelring — ook zonder kleur zie je dus
+waar je nog moet toewijzen.
+
 ### Symbolen
 De symbolen volgen **AREI Boek 1, tabel 2.23** (grafische symbolen), dezelfde
 norm die Trikker en Tricity gebruiken: lichtpunt als kruis in een cirkel,
