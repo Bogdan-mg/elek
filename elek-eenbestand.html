@@ -415,6 +415,22 @@ kbd { background: var(--vlak-3); border: 1px solid var(--rand); border-radius: 5
 .bord-knoppen { margin-left: auto; display: flex; gap: 6px; flex: none; }
 .bord-schema.passend svg { width: 100%; height: auto; }
 
+/* Verdiepingen */
+.niveaubalk {
+  position: absolute; left: 12px; top: 12px; display: flex; gap: 4px; align-items: center;
+  background: var(--vlak); border: 1px solid var(--rand); border-radius: 999px;
+  padding: 3px; box-shadow: var(--schaduw); max-width: calc(100% - 24px); overflow-x: auto;
+}
+.niveaubalk button {
+  border: 0; background: transparent; color: var(--tekst-zacht); border-radius: 999px;
+  padding: 6px 13px; font-size: 13px; white-space: nowrap;
+}
+.niveaubalk button.actief { background: var(--accent); color: #fff; font-weight: 600; }
+.niveaubalk button.toevoegen { color: var(--tekst-zacht); font-size: 16px; padding: 4px 11px; }
+.niveaubalk button:hover:not(.actief) { background: var(--vlak-3); }
+
+.puntcode { font-size: 11px; color: var(--tekst-zacht); font-weight: 700; }
+
 </style>
 </head>
 <body>
@@ -467,6 +483,7 @@ kbd { background: var(--vlak-3); border: 1px solid var(--rand); border-radius: 5
 
   <section class="tekenvlak">
     <svg id="plan" class="plan" xmlns="http://www.w3.org/2000/svg"></svg>
+    <div id="niveaubalk" class="niveaubalk"></div>
     <div id="teken-hud" class="teken-hud" hidden></div>
     <div class="zoomknoppen">
       <button class="icoonknop" data-app="zoom-in" title="Inzoomen">+</button>
@@ -884,8 +901,7 @@ function nieuwProject(naam = 'Nieuw project') {
     plan: {
       schaal: 1,           // meters per planeenheid (altijd 1, ruimte voor toekomstig gebruik)
       raster: 0.25,        // rasterafstand in meter
-      niveaus: [{ id: uid('niv'), naam: 'Gelijkvloers' }],
-      onderlaag: null,     // ingescand grondplan om over te tekenen
+      niveaus: [{ id: uid('niv'), naam: 'Gelijkvloers', onderlaag: null }],
       ruimtes: [],
       muren: [],
     },
@@ -901,10 +917,17 @@ function migreer(p) {
   if (!p || typeof p !== 'object') return nieuwProject();
   p.version = p.version || 1;
   p.plan = p.plan || { raster: 0.25, ruimtes: [], muren: [], niveaus: [] };
-  p.plan.onderlaag = p.plan.onderlaag || null;
   p.plan.ruimtes = p.plan.ruimtes || [];
   p.plan.muren = p.plan.muren || [];
   p.plan.niveaus = p.plan.niveaus && p.plan.niveaus.length ? p.plan.niveaus : [{ id: uid('niv'), naam: 'Gelijkvloers' }];
+  const eerste = p.plan.niveaus[0];
+  // oudere projecten: alles op het eerste niveau zetten
+  if (p.plan.onderlaag && !eerste.onderlaag) { eerste.onderlaag = p.plan.onderlaag; }
+  delete p.plan.onderlaag;
+  for (const n of p.plan.niveaus) if (n.onderlaag === undefined) n.onderlaag = null;
+  for (const r of p.plan.ruimtes || []) if (!r.niveauId) r.niveauId = eerste.id;
+  for (const m of p.plan.muren || []) if (!m.niveauId) m.niveauId = eerste.id;
+  for (const c of p.componenten || []) if (!c.niveauId) c.niveauId = eerste.id;
   p.componenten = p.componenten || [];
   p.kringen = p.kringen || [];
   p.differentiëlen = p.differentiëlen || p.differentielen || [];
@@ -1335,6 +1358,7 @@ const store = {
     kleurPerKring: false,
     toonKringnummers: true,
     filterGroep: 'alle',
+    niveauId: null,
   },
 
   _luisteraars: new Set(),
@@ -1433,6 +1457,32 @@ const store = {
   },
 
   isGeselecteerd(id) { return this.ui.selectie.includes(id); },
+
+  // --- Niveaus ------------------------------------------------------
+  get niveaus() { return this.project.plan.niveaus; },
+
+  /** Het niveau waarop nu getekend wordt. */
+  get niveau() {
+    const lijst = this.project.plan.niveaus;
+    return lijst.find((n) => n.id === this.ui.niveauId) || lijst[0];
+  },
+
+  zetNiveau(id) {
+    this.ui.niveauId = id;
+    this.ui.selectie = [];
+    this.emit('niveau');
+  },
+
+  opNiveau(obj) {
+    const n = this.niveau;
+    if (!n) return true;
+    const id = obj.niveauId || (this.project.plan.niveaus[0] && this.project.plan.niveaus[0].id);
+    return id === n.id;
+  },
+
+  ruimtesVanNiveau() { return this.project.plan.ruimtes.filter((r) => this.opNiveau(r)); },
+  murenVanNiveau() { return this.project.plan.muren.filter((m) => this.opNiveau(m)); },
+  componentenVanNiveau() { return this.project.componenten.filter((c) => this.opNiveau(c)); },
 
   // --- Zoekfuncties -------------------------------------------------
   component(id) { return this.project.componenten.find((c) => c.id === id); },
@@ -1757,6 +1807,7 @@ function totaalVermogen(project) {
 
 
 
+
 const SYMBOOL_M = 0.36;     // tekengrootte van een symbool in meter
 const WAND_SNAP = 0.5;      // afstand waarbinnen naar een muur wordt geklikt
 
@@ -1809,9 +1860,11 @@ class PlanCanvas {
 
   zoomNaarAlles() {
     const punten = [];
-    for (const r of store.project.plan.ruimtes) punten.push(...r.punten);
-    for (const m of store.project.plan.muren) punten.push(m.a, m.b);
-    for (const c of store.project.componenten) punten.push({ x: c.x, y: c.y });
+    for (const r of store.ruimtesVanNiveau()) punten.push(...r.punten);
+    for (const m of store.murenVanNiveau()) punten.push(m.a, m.b);
+    for (const c of store.componentenVanNiveau()) punten.push({ x: c.x, y: c.y });
+    const ol0 = store.niveau && store.niveau.onderlaag;
+    if (ol0) punten.push({ x: ol0.x, y: ol0.y }, { x: ol0.x + ol0.breedte, y: ol0.y + ol0.hoogte });
     const box = omhullende(punten);
     const { w, h } = this.maat;
     if (!box || (box.w < 0.01 && box.h < 0.01)) {
@@ -1843,6 +1896,7 @@ class PlanCanvas {
   /** Bouwt de volledige SVG-inhoud. */
   bouw({ vb, voorExport = false } = {}) {
     const p = store.project;
+    this._indeling = p.kringen.length ? bordIndeling(p) : null;
     const ui = store.ui;
     const z = this.view.zoom;
     const lijn = voorExport ? 0.018 : Math.max(0.012, 1.3 / z);
@@ -1853,8 +1907,8 @@ class PlanCanvas {
       s += `<rect x="${vb.x}" y="${vb.y}" width="${vb.w}" height="${vb.h}" fill="url(#raster)"/>`;
     }
 
-    // Ingescand grondplan als onderlaag
-    const ol = p.plan.onderlaag;
+    // Ingescand grondplan als onderlaag van dit niveau
+    const ol = store.niveau && store.niveau.onderlaag;
     if (ol && ol.data && ol.zichtbaar !== false) {
       const gesel = !voorExport && store.isGeselecteerd('onderlaag');
       s += `<image href="${ol.data}" x="${ol.x}" y="${ol.y}" width="${ol.breedte}" height="${ol.hoogte}" ` +
@@ -1865,14 +1919,16 @@ class PlanCanvas {
       }
     }
 
-    // Ruimtes
+    // Ruimtes van dit niveau
+    const ruimtes = store.ruimtesVanNiveau();
+    const componenten = store.componentenVanNiveau();
     s += '<g class="laag-ruimtes">';
-    for (const r of p.plan.ruimtes) s += this.ruimteSVG(r, lijn, voorExport);
+    for (const r of ruimtes) s += this.ruimteSVG(r, lijn, voorExport);
     s += '</g>';
 
     // Losse muren
     s += '<g class="laag-muren">';
-    for (const m of p.plan.muren) {
+    for (const m of store.murenVanNiveau()) {
       const gesel = !voorExport && store.isGeselecteerd(m.id);
       s += `<line data-kind="muur" data-id="${m.id}" x1="${m.a.x}" y1="${m.a.y}" x2="${m.b.x}" y2="${m.b.y}" ` +
         `stroke="${gesel ? 'var(--accent)' : 'var(--muur)'}" stroke-width="${(m.dikte || 0.1)}" stroke-linecap="square"/>`;
@@ -1883,8 +1939,8 @@ class PlanCanvas {
     if (ui.stap >= 2 || voorExport) {
       s += '<g class="laag-verbindingen">';
       for (const v of p.verbindingen) {
-        const a = p.componenten.find((c) => c.id === v.van);
-        const b = p.componenten.find((c) => c.id === v.naar);
+        const a = componenten.find((c) => c.id === v.van);
+        const b = componenten.find((c) => c.id === v.naar);
         if (!a || !b) continue;
         const mx = (a.x + b.x) / 2;
         const my = Math.min(a.y, b.y) - afstand(a, b) * 0.18;
@@ -1896,10 +1952,10 @@ class PlanCanvas {
 
     // Bouwkundige elementen eerst (ze snijden de muur weg), dan de symbolen
     s += '<g class="laag-bouw">';
-    for (const c of p.componenten) if (def(c.type).kringtype === 'bouw') s += this.componentSVG(c, symM, lijn, voorExport);
+    for (const c of componenten) if (def(c.type).kringtype === 'bouw') s += this.componentSVG(c, symM, lijn, voorExport);
     s += '</g>';
     s += '<g class="laag-componenten">';
-    for (const c of p.componenten) if (def(c.type).kringtype !== 'bouw') s += this.componentSVG(c, symM, lijn, voorExport);
+    for (const c of componenten) if (def(c.type).kringtype !== 'bouw') s += this.componentSVG(c, symM, lijn, voorExport);
     s += '</g>';
 
     if (!voorExport) s += this.overlay(lijn, symM);
@@ -2058,8 +2114,11 @@ class PlanCanvas {
     const toonKring = (store.ui.stap === 3 || kleurPerKring || store.ui.toonKringnummers) && kring;
     if ((store.ui.toonLabels || voorExport) && (c.label || toonKring)) {
       const h = Math.max(0.17, 11 / this.view.zoom);
-      const tekst = toonKring ? `${kring.nummer}${c.label ? ' · ' + c.label : ''}` : c.label;
-      s += `<text x="${c.x}" y="${c.y + symM * 0.95 + h}" text-anchor="middle" font-size="${h}" ` +
+      const code = (this._indeling && this._indeling.puntcode.get(c.id)) || (kring ? String(kring.nummer) : '');
+      const tekst = toonKring ? `${code}${c.label ? ' · ' + c.label : ''}` : c.label;
+      const onder = d.wand !== false;
+      const ty = onder ? c.y + symM * 0.95 + h : c.y - symM * 0.95 - h * 0.4;
+      s += `<text x="${c.x}" y="${ty}" text-anchor="middle" font-size="${h}" ` +
         `fill="${toonKring ? kring.kleur : 'var(--tekst-plan-zacht)'}" font-weight="600" ` +
         `font-family="system-ui, sans-serif" style="pointer-events:none">${escape(String(tekst))}</text>`;
     }
@@ -2165,11 +2224,11 @@ class PlanCanvas {
    * ---------------------------------------------------------------- */
   alleSegmenten() {
     const lijst = [];
-    for (const r of store.project.plan.ruimtes) {
+    for (const r of store.ruimtesVanNiveau()) {
       const mid = zwaartepunt(r.punten);
       for (const [a, b] of segmenten(r.punten)) lijst.push({ a, b, binnen: mid });
     }
-    for (const m of store.project.plan.muren) lijst.push({ a: m.a, b: m.b, binnen: null });
+    for (const m of store.murenVanNiveau()) lijst.push({ a: m.a, b: m.b, binnen: null });
     return lijst;
   }
 
@@ -2214,8 +2273,8 @@ class PlanCanvas {
       const d = afstand(punt, p);
       if (d < max && (!beste || d < beste.d)) beste = { d, p };
     };
-    for (const r of store.project.plan.ruimtes) r.punten.forEach(kijk);
-    for (const m of store.project.plan.muren) { kijk(m.a); kijk(m.b); }
+    for (const r of store.ruimtesVanNiveau()) r.punten.forEach(kijk);
+    for (const m of store.murenVanNiveau()) { kijk(m.a); kijk(m.b); }
     return beste ? { x: beste.p.x, y: beste.p.y } : null;
   }
 
@@ -2279,7 +2338,7 @@ class PlanCanvas {
   }
 
   ruimteOp(punt) {
-    const ruimtes = store.project.plan.ruimtes;
+    const ruimtes = store.ruimtesVanNiveau();
     for (let i = ruimtes.length - 1; i >= 0; i--) {
       if (puntInPolygoon(punt, ruimtes[i].punten)) return ruimtes[i];
     }
@@ -2300,6 +2359,7 @@ class PlanCanvas {
         rot: pos.rot,
         label: '',
         ruimteId: ruimte ? ruimte.id : null,
+        niveauId: store.niveau ? store.niveau.id : null,
         kringId: store.ui.stap === 3 ? store.ui.actieveKring : null,
         hoogte: d.hoogte ?? null,
         watt: d.watt ?? null,
@@ -2548,7 +2608,7 @@ class PlanCanvas {
         break;
       }
       case 'onderlaag': {
-        const ol = store.project.plan.onderlaag;
+        const ol = store.niveau && store.niveau.onderlaag;
         if (ol) {
           ol.x = +(ol.x + (w.x - a.start.x)).toFixed(3);
           ol.y = +(ol.y + (w.y - a.start.y)).toFixed(3);
@@ -2589,7 +2649,7 @@ class PlanCanvas {
       case 'rubber': {
         if (!a.huidig) break;
         const b = omhullende([a.start, a.huidig]);
-        const gevonden = store.project.componenten
+        const gevonden = store.componentenVanNiveau()
           .filter((c) => c.x >= b.x1 && c.x <= b.x2 && c.y >= b.y1 && c.y <= b.y2)
           .map((c) => c.id);
         if (gevonden.length) store.selecteer(gevonden, e.shiftKey);
@@ -2637,7 +2697,7 @@ class PlanCanvas {
         punten: punten.map((pt) => ({ x: +pt.x.toFixed(3), y: +pt.y.toFixed(3) })),
         kleur: d.kleur,
         muurdikte: 0.09,
-        niveauId: p.plan.niveaus[0] && p.plan.niveaus[0].id,
+        niveauId: store.niveau ? store.niveau.id : (p.plan.niveaus[0] && p.plan.niveaus[0].id),
       };
       p.plan.ruimtes.push(r);
       id = r.id;
@@ -2662,7 +2722,10 @@ class PlanCanvas {
     store.setUI({ bezigMuur: null, lengteInvoer: '' });
     if (!start || afstand(start, p) < 0.15) return;
     store.commit('muur getekend', (prj) => {
-      prj.plan.muren.push({ id: uid('mur'), a: { x: start.x, y: start.y }, b: { x: p.x, y: p.y }, dikte: 0.1 });
+      prj.plan.muren.push({
+        id: uid('mur'), a: { x: start.x, y: start.y }, b: { x: p.x, y: p.y }, dikte: 0.1,
+        niveauId: store.niveau ? store.niveau.id : null,
+      });
     });
   }
 
@@ -2716,7 +2779,7 @@ class PlanCanvas {
   /** Koppelt elke component opnieuw aan de ruimte waarin hij ligt. */
   herberekenRuimtes() {
     let gewijzigd = false;
-    for (const c of store.project.componenten) {
+    for (const c of store.componentenVanNiveau()) {
       const r = this.ruimteOp({ x: c.x, y: c.y }) ||
         this.dichtstbijzijndeRuimte({ x: c.x, y: c.y });
       const nieuw = r ? r.id : null;
@@ -2727,7 +2790,7 @@ class PlanCanvas {
 
   dichtstbijzijndeRuimte(punt) {
     let beste = null;
-    for (const r of store.project.plan.ruimtes) {
+    for (const r of store.ruimtesVanNiveau()) {
       for (const [a, b] of segmenten(r.punten)) {
         const pr = projecteerOpSegment(punt, a, b);
         if (pr.afstand < 0.6 && (!beste || pr.afstand < beste.afstand)) beste = { afstand: pr.afstand, r };
@@ -2787,6 +2850,7 @@ function escape(t) {
 // hoofddifferentieel, daarboven per differentieel een rail, en vanaf die
 // rail vertrekt elke kring naar boven met genummerde aftakkingen waaraan
 // de toestellen hangen.
+
 
 
 
@@ -2864,44 +2928,6 @@ function polen(kring, fasen = 1) {
  * Aftakkingen van een kring bepalen
  * ------------------------------------------------------------------ */
 
-/**
- * Verdeelt de componenten van een kring over genummerde aftakkingen:
- * een schakelaar staat samen met de verlichting die hij bedient, en
- * verder krijgt elke groep gelijke toestellen een eigen aftakking.
- */
-function bouwRijen(project, kring) {
-  const comps = componentenVanKring(project, kring.id);
-  const gebruikt = new Set();
-  const rijen = [];
-
-  for (const c of comps) {
-    if (def(c.type).kringtype !== 'bediening' || gebruikt.has(c.id)) continue;
-    const verbonden = project.verbindingen
-      .filter((v) => v.van === c.id || v.naar === c.id)
-      .map((v) => (v.van === c.id ? v.naar : v.van))
-      .map((id) => comps.find((x) => x.id === id))
-      .filter((x) => x && !gebruikt.has(x.id));
-    gebruikt.add(c.id);
-    for (const v of verbonden) gebruikt.add(v.id);
-    rijen.push([c, ...verbonden]);
-  }
-
-  const groepen = new Map();
-  for (const c of comps) {
-    if (gebruikt.has(c.id)) continue;
-    const r = c.ruimteId && project.plan.ruimtes.find((x) => x.id === c.ruimteId);
-    const ruimte = r ? (r.naam || ruimteDef(r.type).naam) : '';
-    const sleutel = `${c.type}|${c.label || ''}|${ruimte}`;
-    if (!groepen.has(sleutel)) groepen.set(sleutel, []);
-    groepen.get(sleutel).push(c);
-  }
-  const orde = { verlichting: 0, bediening: 1, stopcontact: 2, vast: 3, zwakstroom: 4, verdeling: 5 };
-  const rest = [...groepen.values()].sort(
-    (a, b) => (orde[def(a[0].type).kringtype] ?? 9) - (orde[def(b[0].type).kringtype] ?? 9)
-  );
-  return [...rijen, ...rest];
-}
-
 /** Naam van de ruimte van een component. */
 function ruimteVan(project, comp) {
   const r = comp.ruimteId && project.plan.ruimtes.find((x) => x.id === comp.ruimteId);
@@ -2914,17 +2940,15 @@ function ruimteVan(project, comp) {
 function bouwBordSVG(project = store.project) {
   const fasen = project.net.fasen || 1;
 
-  // 1. kringen per differentieel
-  const gebruikteDif = project.differentiëlen.filter((d) => project.kringen.some((k) => k.differentieelId === d.id));
-  const banden = gebruikteDif.map((d) => ({ dif: d, kringen: project.kringen.filter((k) => k.differentieelId === d.id) }));
-  const wees = project.kringen.filter((k) => !gebruikteDif.some((d) => d.id === k.differentieelId));
-  if (wees.length) banden.push({ dif: null, kringen: wees });
+  // 1. kringen per differentieel, met de letters van het bord
+  const indeling = bordIndeling(project);
+  const bandenLijst = banden(project);
 
   // 2. kolommen met hun eigen breedte en aftakkingen
   const kolommen = [];
-  for (const band of banden) {
+  for (const band of bandenLijst) {
     band.kringen.forEach((k, i) => {
-      const rijen = bouwRijen(project, k);
+      const rijen = indeling.rijenVan.get(k.id) || [];
       const breedste = Math.max(1, ...rijen.map((r) => Math.min(r.length, 12)));
       kolommen.push({
         dif: band.dif,
@@ -2936,7 +2960,7 @@ function bouwBordSVG(project = store.project) {
     });
   }
   if (!kolommen.length) {
-    kolommen.push({ dif: banden[0] ? banden[0].dif : project.differentiëlen[0] || null, eersteVanDif: true, kring: null, rijen: [], breedte: KOL_MIN });
+    kolommen.push({ dif: bandenLijst[0] ? bandenLijst[0].dif : project.differentiëlen[0] || null, eersteVanDif: true, kring: null, rijen: [], breedte: KOL_MIN });
   }
 
   // 3. kolommen over bladen verdelen; een differentieel blijft samen
@@ -3045,6 +3069,8 @@ function bouwBordSVG(project = store.project) {
         if (kol.dif) {
           const kleur = kol.dif.gevoeligheid <= 30 ? 'var(--accent)' : LIJN;
           s += hefboom(dx, hoofdY - 40, kleur, 2.2);
+          s += `<text x="${dx - 26}" y="${hoofdY - 34}" font-size="11" font-weight="700" fill="var(--tekst)">` +
+            `${indeling.difLetter.get(kol.dif.id) || ''}</text>`;
           s += kortsluitvak(dx + 8, hoofdY - 20, kol.dif.kortsluit || 3000);
           s += gedraaid(dx - 10, hoofdY - 6, escape(kort(kol.dif.naam, 13)), { vet: true, grootte: 10 });
           s += gedraaid(dx + 46, hoofdY - 6, `Δ${kol.dif.gevoeligheid} mA · type ${kol.dif.type || 'A'}`, { grootte: 9, kleur: kleur });
@@ -3070,9 +3096,10 @@ function bouwBordSVG(project = store.project) {
 
       // automaat met kringletter, kortsluitvermogen en aanduiding
       s += hefboom(x, railY - 16, LIJN, 2);
-      s += `<circle cx="${x - 26}" cy="${railY - 14}" r="9.5" fill="${k.kleur}"/>`;
+      const letter = indeling.kringLetter.get(k.id) || String(k.nummer);
+      s += `<circle cx="${x - 26}" cy="${railY - 14}" r="10" fill="${k.kleur}"/>`;
       s += `<text x="${x - 26}" y="${railY - 14}" text-anchor="middle" dominant-baseline="central" ` +
-        `font-size="10" font-weight="700" fill="#fff">${k.nummer}</text>`;
+        `font-size="11" font-weight="700" fill="#fff">${letter}</text>`;
       s += kortsluitvak(x + 6, railY - 24, k.kortsluit || 3000);
       s += gedraaid(x + 42, railY - 6, `${polen(k, fasen)} - ${k.curve || 'C'} ${k.amp}A`, { grootte: 9.5 });
 
@@ -3087,7 +3114,7 @@ function bouwBordSVG(project = store.project) {
         const zichtbaar = rij.slice(0, 12);
         const eindeX = x + 26 + Math.max(0, zichtbaar.length - 1) * SYM_STAP + 12;
         s += `<line x1="${x}" y1="${ry}" x2="${eindeX}" y2="${ry}" stroke="${LIJN}" stroke-width="1.4"/>`;
-        s += `<text x="${x - 9}" y="${ry + 3}" text-anchor="end" font-size="9.5" fill="var(--tekst)">${ri + 1}</text>`;
+        s += `<text x="${x - 9}" y="${ry + 3}" text-anchor="end" font-size="9.5" fill="var(--tekst)">${letter}${ri + 1}</text>`;
         zichtbaar.forEach((c, ci) => {
           s += symboolOpLeiding(c.type, x + 26 + ci * SYM_STAP, ry, 0.26, LIJN, 6);
         });
@@ -3148,6 +3175,7 @@ function bouwBordTabel(project = store.project) {
   if (!project.kringen.length) {
     return '<p class="leeg">Nog geen kringen. Ga naar stap 3 en maak kringen aan of gebruik “Automatisch verdelen”.</p>';
   }
+  const indeling = bordIndeling(project);
   let h = '';
   for (const k of project.kringen) {
     const dif = project.differentiëlen.find((d) => d.id === k.differentieelId);
@@ -3184,8 +3212,10 @@ function bouwBordTabel(project = store.project) {
         h += `<div class="kring-ruimte"><strong>${escape(ruimte)}</strong><ul>`;
         for (const { comp, aantal } of samengevat.values()) {
           const d = def(comp.type);
+          const code = indeling.puntcode.get(comp.id);
           h += `<li><span class="mini-sym"><svg viewBox="-56 -56 112 112" width="18" height="18" fill="none" stroke="currentColor" stroke-width="7">${symbool(comp.type)}</svg></span>` +
-            `${aantal > 1 ? aantal + '× ' : ''}${escape(d.naam)}${comp.label ? ' — ' + escape(comp.label) : ''}</li>`;
+            `${code ? `<b class="puntcode">${code}</b> ` : ''}${aantal > 1 ? aantal + '× ' : ''}${escape(d.naam)}` +
+            `${comp.label ? ' — ' + escape(comp.label) : ''}</li>`;
         }
         h += '</ul></div>';
       }
@@ -3209,6 +3239,7 @@ function bouwBordTabel(project = store.project) {
 /* ---- panels.js ---- */
 // Zijpanelen: gereedschap per stap, symbolenpalet, kringbeheer en
 // het eigenschappenpaneel van de selectie.
+
 
 
 
@@ -3275,8 +3306,8 @@ function paneelPlattegrond() {
       <button class="mini" data-actie="stop-polygoon">Annuleren</button></div>`;
   }
 
-  if (p.plan.onderlaag) {
-    const ol = p.plan.onderlaag;
+  if (store.niveau && store.niveau.onderlaag) {
+    const ol = store.niveau.onderlaag;
     h += `<div class="lijst-kop"><h3>Ingescand grondplan</h3></div>
       <li class="rij" data-actie="selecteer" data-id="onderlaag" style="list-style:none">
         <span class="rij-naam">${escape(ol.naam || 'grondplan')}</span>
@@ -3489,8 +3520,9 @@ function paneelComponent(c) {
       <input type="text" value="${escape(c.label || '')}" placeholder="bv. bureau links" data-actie="comp-label"></label>
     ${d.kringtype === 'bouw' ? '' : `<label class="veld"><span>Kring / zekering</span>${kringKeuze(c.kringId)}</label>`}`;
   if (kring) {
+    const code = bordIndeling(store.project).puntcode.get(c.id);
     h += `<p class="kring-samenvatting" style="--kring:${kring.kleur}">
-      Kring ${kring.nummer}: ${kring.amp} A · ${kring.mm2} mm²${kring.differentieelId && store.differentieel(kring.differentieelId) ? ` · Δ${store.differentieel(kring.differentieelId).gevoeligheid} mA` : ''}</p>`;
+      ${code ? `Punt <strong>${code}</strong> · ` : ''}kring ${kring.nummer}: ${kring.amp} A · ${kring.mm2} mm²${kring.differentieelId && store.differentieel(kring.differentieelId) ? ` · Δ${store.differentieel(kring.differentieelId).gevoeligheid} mA` : ''}</p>`;
   }
   h += d.kringtype === 'bouw'
     ? `<div class="veld-rij">
@@ -3561,7 +3593,7 @@ function paneelRuimte(r) {
 }
 
 function paneelOnderlaag() {
-  const ol = store.project.plan.onderlaag;
+  const ol = store.niveau && store.niveau.onderlaag;
   if (!ol) return paneelProject();
   return `<div class="paneel-kop"><h2>Grondplan</h2>
       <p>${escape(ol.naam || 'ingescand plan')} · ${ol.breedte.toFixed(2)} × ${ol.hoogte.toFixed(2)} m</p></div>
@@ -3601,6 +3633,14 @@ function paneelProject() {
       <label class="veld"><span>Hoofdzekering</span>
         <select data-actie="prj-hoofd">${[25, 32, 40, 50, 63, 80].map((a) => `<option value="${a}"${p.net.hoofdzekering === a ? ' selected' : ''}>${a} A</option>`).join('')}</select></label>
     </div>
+    <div class="lijst-kop"><h3>Verdiepingen</h3></div><ul class="lijst">
+      ${p.plan.niveaus.map((n) => `<li class="rij${store.niveau && store.niveau.id === n.id ? ' geselecteerd' : ''}">
+        <input class="inline-invoer" value="${escape(n.naam)}" data-actie="niveau-naam" data-id="${n.id}">
+        <span class="rij-meta">${p.plan.ruimtes.filter((r) => r.niveauId === n.id).length} ruimtes ·
+          ${p.componenten.filter((c) => c.niveauId === n.id).length} comp.</span>
+        ${p.plan.niveaus.length > 1 ? `<button class="mini gevaar" data-actie="verwijder-niveau" data-id="${n.id}" title="Verdieping verwijderen">×</button>` : ''}
+      </li>`).join('')}
+    </ul>
     <div class="cijfers">
       <div><strong>${p.plan.ruimtes.length}</strong><span>ruimtes</span></div>
       <div><strong>${p.componenten.filter((c) => def(c.type).kringtype !== 'bouw').length}</strong><span>componenten</span></div>
@@ -3691,9 +3731,28 @@ function klik(e) {
       store.selecteer(ids);
       break;
     }
+    case 'verwijder-niveau': {
+      const niveau = store.project.plan.niveaus.find((n) => n.id === id);
+      if (!niveau) break;
+      const aantal = store.project.componenten.filter((c) => c.niveauId === id).length +
+        store.project.plan.ruimtes.filter((r) => r.niveauId === id).length;
+      if (aantal && !confirm(`“${niveau.naam}” verwijderen met ${aantal} getekende onderdelen?`)) break;
+      store.commit('verdieping verwijderd', (p) => {
+        p.plan.niveaus = p.plan.niveaus.filter((n) => n.id !== id);
+        const weg = new Set(p.plan.ruimtes.filter((r) => r.niveauId === id).map((r) => r.id));
+        p.plan.ruimtes = p.plan.ruimtes.filter((r) => r.niveauId !== id);
+        p.plan.muren = p.plan.muren.filter((m) => m.niveauId !== id);
+        const compWeg = new Set(p.componenten.filter((c) => c.niveauId === id).map((c) => c.id));
+        p.componenten = p.componenten.filter((c) => c.niveauId !== id);
+        p.verbindingen = p.verbindingen.filter((v) => !compWeg.has(v.van) && !compWeg.has(v.naar));
+        void weg;
+      });
+      if (store.ui.niveauId === id) store.zetNiveau(store.project.plan.niveaus[0].id);
+      break;
+    }
     case 'onderlaag-weg':
       if (!confirm('Het ingescande grondplan verwijderen?')) return;
-      store.commit('grondplan verwijderd', (p) => { p.plan.onderlaag = null; });
+      store.commit('grondplan verwijderd', () => { if (store.niveau) store.niveau.onderlaag = null; });
       store.selecteer([]);
       break;
     case 'verwijder-selectie': verwijderSelectie(); break;
@@ -3714,7 +3773,7 @@ function invoer(e) {
 
   if (actie === 'zoek') { store.setUI({ zoek: waarde }); return; }
   if (actie === 'onderlaag-dekking') {
-    const ol = store.project.plan.onderlaag;
+    const ol = store.niveau && store.niveau.onderlaag;
     if (ol) { ol.dekking = Number(waarde) / 100; store.bewaar(); store.emit('project-licht'); }
     return;
   }
@@ -3747,6 +3806,11 @@ function invoer(e) {
   if (actie === 'dif-naam') {
     const d = store.differentieel(veld.dataset.id);
     if (d) { d.naam = waarde; store.bewaar(); }
+    return;
+  }
+  if (actie === 'niveau-naam') {
+    const niveau = store.project.plan.niveaus.find((n) => n.id === veld.dataset.id);
+    if (niveau) { niveau.naam = waarde; store.bewaar(); store.emit('project-licht'); }
     return;
   }
   if (actie === 'prj-naam') { store.project.naam = waarde; store.bewaar(); document.title = waarde + ' — Elek'; return; }
@@ -3831,8 +3895,8 @@ function wijzig(e) {
     case 'onderlaag-breedte': {
       const nieuw = Number(waarde);
       if (!(nieuw > 0.2)) break;
-      store.commit('schaal grondplan', (p) => {
-        const ol = p.plan.onderlaag;
+      store.commit('schaal grondplan', () => {
+        const ol = store.niveau && store.niveau.onderlaag;
         if (!ol) return;
         const verhouding = ol.hoogte / ol.breedte;
         ol.breedte = nieuw;
@@ -3841,10 +3905,10 @@ function wijzig(e) {
       break;
     }
     case 'onderlaag-zichtbaar':
-      store.commit('grondplan getoond', (p) => { if (p.plan.onderlaag) p.plan.onderlaag.zichtbaar = veld.checked; });
+      store.commit('grondplan getoond', () => { if (store.niveau && store.niveau.onderlaag) store.niveau.onderlaag.zichtbaar = veld.checked; });
       break;
     case 'onderlaag-vergrendeld':
-      store.commit('grondplan vergrendeld', (p) => { if (p.plan.onderlaag) p.plan.onderlaag.vergrendeld = veld.checked; });
+      store.commit('grondplan vergrendeld', () => { if (store.niveau && store.niveau.onderlaag) store.niveau.onderlaag.vergrendeld = veld.checked; });
       break;
     case 'ruimte-kleur':
       store.commit('kleur gewijzigd', () => { const r = store.ruimte(store.ui.selectie[0]); if (r) r.kleur = waarde; });
@@ -3964,7 +4028,7 @@ function planOmhullende(marge = 0.8) {
   };
 }
 
-/** Losstaande SVG van het situatieschema. */
+/** Losstaande SVG van het situatieschema, met titelhoek zoals op een dossier. */
 function planSVG(canvas, { pxPerMeter = 80, titel = true } = {}) {
   const vb = planOmhullende();
   const bewaardeZoom = canvas.view.zoom;
@@ -3973,20 +4037,47 @@ function planSVG(canvas, { pxPerMeter = 80, titel = true } = {}) {
   canvas.view.zoom = bewaardeZoom;
 
   const p = store.project;
-  const kopHoogte = titel ? 0.9 : 0;
+  const niveau = store.niveau;
+  const px = (n) => n / pxPerMeter;                          // beeldpunten naar meter
+  const voet = titel ? px(78) : 0;                           // titelhoek onderaan
+  const kop = titel ? px(30) : 0;                            // naam van de verdieping
+  const totaalH = vb.h + voet + kop;
   const w = vb.w * pxPerMeter;
-  const h = (vb.h + kopHoogte) * pxPerMeter;
+  const h = totaalH * pxPerMeter;
+  const e = px(10);                                          // eenheid voor de titelhoek
+
   let s = `<svg xmlns="http://www.w3.org/2000/svg" width="${Math.round(w)}" height="${Math.round(h)}" ` +
-    `viewBox="${vb.x} ${vb.y - kopHoogte} ${vb.w} ${vb.h + kopHoogte}" style="${kleurStijl()}">`;
-  s += `<rect x="${vb.x}" y="${vb.y - kopHoogte}" width="${vb.w}" height="${vb.h + kopHoogte}" fill="#ffffff"/>`;
-  if (titel) {
-    s += `<text x="${vb.x + 0.2}" y="${vb.y - kopHoogte + 0.45}" font-size="0.36" font-weight="700" ` +
-      `font-family="system-ui, sans-serif" fill="#111827">${escape(p.naam || 'Situatieschema')}</text>`;
-    const onder = [p.klant, p.adres, new Date().toLocaleDateString('nl-BE')].filter(Boolean).join(' · ');
-    s += `<text x="${vb.x + 0.2}" y="${vb.y - kopHoogte + 0.78}" font-size="0.22" ` +
-      `font-family="system-ui, sans-serif" fill="#6b7280">${escape(onder)}</text>`;
+    `viewBox="${vb.x} ${vb.y - kop} ${vb.w} ${totaalH}" style="${kleurStijl()}" font-family="system-ui, sans-serif">`;
+  s += `<rect x="${vb.x}" y="${vb.y - kop}" width="${vb.w}" height="${totaalH}" fill="#ffffff"/>`;
+
+  if (titel && niveau) {
+    s += `<text x="${vb.x + px(6)}" y="${vb.y - kop + px(19)}" font-size="${px(16)}" font-weight="700" fill="#111827">` +
+      `${escape(niveau.naam)}</text>`;
   }
   s += inhoud;
+
+  if (titel) {
+    const ty = vb.y + vb.h + px(10);
+    const th = px(62);
+    const tb = vb.w - px(12);
+    const tx = vb.x + px(6);
+    const k1 = tb * 0.5, k2 = tb * 0.78;
+    const r = '#9ca3af';
+    s += `<rect x="${tx}" y="${ty}" width="${tb}" height="${th}" fill="none" stroke="${r}" stroke-width="${px(1)}"/>`;
+    s += `<line x1="${tx + k1}" y1="${ty}" x2="${tx + k1}" y2="${ty + th}" stroke="${r}" stroke-width="${px(1)}"/>`;
+    s += `<line x1="${tx + k2}" y1="${ty}" x2="${tx + k2}" y2="${ty + th}" stroke="${r}" stroke-width="${px(1)}"/>`;
+    const rg = (x, y, tekst, grootte, vet, kleur) =>
+      `<text x="${x}" y="${y}" font-size="${px(grootte)}" ${vet ? 'font-weight="700" ' : ''}fill="${kleur}">${tekst}</text>`;
+    s += rg(tx + px(8), ty + px(16), 'Plaats van de elektrische installatie', 10.5, true, '#111827');
+    s += rg(tx + px(14), ty + px(33), escape(p.klant || ''), 10.5, false, '#111827');
+    s += rg(tx + px(14), ty + px(48), escape(p.adres || ''), 10.5, false, '#111827');
+    s += rg(tx + k1 + px(8), ty + px(16), 'Installatie', 10.5, true, '#111827');
+    s += rg(tx + k1 + px(14), ty + px(33), escape(p.naam || ''), 10.5, false, '#111827');
+    s += rg(tx + k1 + px(14), ty + px(48), `${store.project.kringen.length} kringen · ${store.project.componenten.filter((c) => def(c.type).kringtype !== 'bouw').length} punten`, 9.5, false, '#6b7280');
+    s += rg(tx + k2 + px(8), ty + px(16), 'Situatieschema', 10.5, true, '#111827');
+    s += rg(tx + k2 + px(8), ty + px(33), escape(niveau ? niveau.naam : ''), 10.5, false, '#111827');
+    s += rg(tx + k2 + px(8), ty + px(48), new Date().toLocaleDateString('nl-BE'), 9.5, false, '#6b7280');
+  }
   s += '</svg>';
   return s;
 }
@@ -4066,9 +4157,10 @@ function importeerOnderlaag(bestand, maxPx = 1800) {
         const data = c.toDataURL('image/jpeg', 0.82);
         const breedte = 10;                                  // standaard 10 m breed
         const hoogte = +(breedte * (c.height / c.width)).toFixed(3);
-        store.commit('grondplan geïmporteerd', (p) => {
-          const bestaand = p.plan.onderlaag || {};
-          p.plan.onderlaag = {
+        store.commit('grondplan geïmporteerd', () => {
+          const niveau = store.niveau;
+          const bestaand = niveau.onderlaag || {};
+          niveau.onderlaag = {
             data,
             x: bestaand.x ?? 0,
             y: bestaand.y ?? 0,
@@ -4080,7 +4172,7 @@ function importeerOnderlaag(bestand, maxPx = 1800) {
             naam: bestand.name || 'grondplan',
           };
         });
-        klaar(store.project.plan.onderlaag);
+        klaar(store.niveau.onderlaag);
       };
       img.onerror = () => fout(new Error('De afbeelding kon niet gelezen worden.'));
       img.src = String(lezer.result);
@@ -4183,13 +4275,23 @@ function drukAf(canvas) {
   const p = store.project;
   const vlak = document.getElementById('print-vlak');
   const datum = new Date().toLocaleDateString('nl-BE');
-  vlak.innerHTML = `
-    <div class="print-blad">
-      <h1>${escape(p.naam || 'Elektrisch dossier')}</h1>
-      <p class="print-meta">${[p.klant, p.adres].filter(Boolean).map(escape).join(' · ')} ${p.klant || p.adres ? '·' : ''} ${datum}</p>
-      <h2>Situatieschema</h2>
+  const bewaardNiveau = store.ui.niveauId;
+
+  // één blad per verdieping
+  let bladen = '';
+  p.plan.niveaus.forEach((niveau, i) => {
+    store.ui.niveauId = niveau.id;
+    bladen += `<div class="print-blad">
+      ${i === 0 ? `<h1>${escape(p.naam || 'Elektrisch dossier')}</h1>
+        <p class="print-meta">${[p.klant, p.adres].filter(Boolean).map(escape).join(' · ')} ${p.klant || p.adres ? '·' : ''} ${datum}</p>` : ''}
+      <h2>Situatieschema — ${escape(niveau.naam)}</h2>
       <div class="print-plan">${planSVG(canvas, { pxPerMeter: 70, titel: false })}</div>
-    </div>
+    </div>`;
+  });
+  store.ui.niveauId = bewaardNiveau;
+
+  vlak.innerHTML = `
+    ${bladen}
     <div class="print-blad">
       <h2>Verdeelbord</h2>
       <div class="print-bord">${bordSVGBestand(p)}</div>
@@ -4238,6 +4340,7 @@ function start() {
     if (reden === 'project-licht') return;
     tekenLinks();
     tekenRechts();
+    tekenNiveaus();
     if (store.ui.weergave === 'bord') tekenBord();
     werkbalkBij();
   });
@@ -4248,6 +4351,7 @@ function start() {
 
   tekenLinks();
   tekenRechts();
+  tekenNiveaus();
   werkbalkBij();
   canvas.zoomNaarAlles();
   document.title = (store.project.naam || 'Elek') + ' — Elek';
@@ -4294,6 +4398,11 @@ function bindWerkbalk() {
       case 'sluit-paneel':
         document.body.classList.remove('links-open', 'rechts-open', 'menu-open');
         break;
+      case 'niveau':
+        store.zetNiveau(knop.dataset.id);
+        canvas.zoomNaarAlles();
+        break;
+      case 'niveau-nieuw': nieuwNiveau(); break;
       case 'onderlaag': $('#onderlaag-invoer').click(); break;
       case 'voorbeeld': laadVoorbeeld(); break;
       case 'bord-passend':
@@ -4356,9 +4465,43 @@ function zetStap(stap) {
   canvas.render();
 }
 
+/** Voegt een verdieping toe, eventueel met de ruimtes van het huidige niveau. */
+function nieuwNiveau() {
+  const niveaus = store.project.plan.niveaus;
+  const voorstel = niveaus.length === 1 ? '1e verdieping' : `${niveaus.length}e verdieping`;
+  const naam = prompt('Naam van de verdieping:', voorstel);
+  if (naam === null) return;
+  const kopieer = store.ruimtesVanNiveau().length > 0 &&
+    confirm('De ruimtes van dit niveau meenemen als vertrekpunt?\n(De componenten komen niet mee.)');
+  let nieuwId = null;
+  store.commit('verdieping toegevoegd', (p) => {
+    const niveau = { id: uid('niv'), naam: naam.trim() || voorstel, onderlaag: null };
+    p.plan.niveaus.push(niveau);
+    nieuwId = niveau.id;
+    if (kopieer) {
+      const bron = store.niveau;
+      for (const r of p.plan.ruimtes.filter((x) => x.niveauId === bron.id)) {
+        p.plan.ruimtes.push({ ...r, id: uid('rmt'), niveauId: niveau.id, punten: r.punten.map((pt) => ({ ...pt })) });
+      }
+      for (const m of p.plan.muren.filter((x) => x.niveauId === bron.id)) {
+        p.plan.muren.push({ ...m, id: uid('mur'), niveauId: niveau.id, a: { ...m.a }, b: { ...m.b } });
+      }
+      for (const c of p.componenten.filter((x) => x.niveauId === bron.id && def(x.type).kringtype === 'bouw')) {
+        p.componenten.push({ ...c, id: uid('cmp'), niveauId: niveau.id, ruimteId: null, kringId: null });
+      }
+    }
+  });
+  if (nieuwId) {
+    store.zetNiveau(nieuwId);
+    if (kopieer) canvas.herberekenRuimtes();
+    canvas.zoomNaarAlles();
+  }
+}
+
 function zetWeergave(weergave) {
   store.ui.weergave = weergave;
   $('#werkvlak').classList.toggle('toon-bord', weergave === 'bord');
+  $('#niveaubalk').hidden = weergave === 'bord';
   if (weergave === 'bord') tekenBord();
   werkbalkBij();
   canvas.render();
@@ -4419,6 +4562,18 @@ function werkHudBij() {
   hud.innerHTML = `<b>${maat}</b>` +
     (invoer ? `<span class="hud-invoer">${invoer} m → Enter</span>` : '<span class="hud-tip">typ een lengte + Enter</span>') +
     `<span class="hud-tip">${tip}</span>`;
+}
+
+/** Balkje met de verdiepingen boven het plan. */
+function tekenNiveaus() {
+  const balk = $('#niveaubalk');
+  if (!balk) return;
+  const niveaus = store.project.plan.niveaus;
+  const actief = store.niveau;
+  balk.innerHTML = niveaus
+    .map((n) => `<button data-app="niveau" data-id="${n.id}" class="${n.id === (actief && actief.id) ? 'actief' : ''}">${n.naam}</button>`)
+    .join('') + '<button class="toevoegen" data-app="niveau-nieuw" title="Verdieping toevoegen">+</button>';
+  balk.hidden = store.ui.weergave === 'bord';
 }
 
 function tekenBord() {
@@ -4578,6 +4733,7 @@ function laadVoorbeeld() {
       prj.componenten.push({
         id: uid('cmp'), type, x: pos.x, y: pos.y, rot: pos.rot, label: '',
         ruimteId: ruimte ? ruimte.id : null, kringId: null,
+        niveauId: prj.plan.niveaus[0].id,
         hoogte: d.hoogte ?? null, watt: d.watt ?? null,
         breedte: type === 'trap' ? 0.85 : (d.breedte ?? null), diepte: type === 'trap' ? 2.2 : (d.diepte ?? null),
         opmerking: '',

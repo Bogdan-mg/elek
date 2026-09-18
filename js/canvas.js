@@ -4,6 +4,7 @@
 import store from './store.js';
 import { def, uid, ruimteDef } from './model.js';
 import { symbool } from './symbols.js';
+import { bordIndeling } from './indeling.js';
 import {
   snapPunt, puntInPolygoon, oppervlakte, zwaartepunt, omhullende,
   projecteerOpSegment, segmenten, rechthoek, orthogonaal, afstand,
@@ -61,9 +62,11 @@ export class PlanCanvas {
 
   zoomNaarAlles() {
     const punten = [];
-    for (const r of store.project.plan.ruimtes) punten.push(...r.punten);
-    for (const m of store.project.plan.muren) punten.push(m.a, m.b);
-    for (const c of store.project.componenten) punten.push({ x: c.x, y: c.y });
+    for (const r of store.ruimtesVanNiveau()) punten.push(...r.punten);
+    for (const m of store.murenVanNiveau()) punten.push(m.a, m.b);
+    for (const c of store.componentenVanNiveau()) punten.push({ x: c.x, y: c.y });
+    const ol0 = store.niveau && store.niveau.onderlaag;
+    if (ol0) punten.push({ x: ol0.x, y: ol0.y }, { x: ol0.x + ol0.breedte, y: ol0.y + ol0.hoogte });
     const box = omhullende(punten);
     const { w, h } = this.maat;
     if (!box || (box.w < 0.01 && box.h < 0.01)) {
@@ -95,6 +98,7 @@ export class PlanCanvas {
   /** Bouwt de volledige SVG-inhoud. */
   bouw({ vb, voorExport = false } = {}) {
     const p = store.project;
+    this._indeling = p.kringen.length ? bordIndeling(p) : null;
     const ui = store.ui;
     const z = this.view.zoom;
     const lijn = voorExport ? 0.018 : Math.max(0.012, 1.3 / z);
@@ -105,8 +109,8 @@ export class PlanCanvas {
       s += `<rect x="${vb.x}" y="${vb.y}" width="${vb.w}" height="${vb.h}" fill="url(#raster)"/>`;
     }
 
-    // Ingescand grondplan als onderlaag
-    const ol = p.plan.onderlaag;
+    // Ingescand grondplan als onderlaag van dit niveau
+    const ol = store.niveau && store.niveau.onderlaag;
     if (ol && ol.data && ol.zichtbaar !== false) {
       const gesel = !voorExport && store.isGeselecteerd('onderlaag');
       s += `<image href="${ol.data}" x="${ol.x}" y="${ol.y}" width="${ol.breedte}" height="${ol.hoogte}" ` +
@@ -117,14 +121,16 @@ export class PlanCanvas {
       }
     }
 
-    // Ruimtes
+    // Ruimtes van dit niveau
+    const ruimtes = store.ruimtesVanNiveau();
+    const componenten = store.componentenVanNiveau();
     s += '<g class="laag-ruimtes">';
-    for (const r of p.plan.ruimtes) s += this.ruimteSVG(r, lijn, voorExport);
+    for (const r of ruimtes) s += this.ruimteSVG(r, lijn, voorExport);
     s += '</g>';
 
     // Losse muren
     s += '<g class="laag-muren">';
-    for (const m of p.plan.muren) {
+    for (const m of store.murenVanNiveau()) {
       const gesel = !voorExport && store.isGeselecteerd(m.id);
       s += `<line data-kind="muur" data-id="${m.id}" x1="${m.a.x}" y1="${m.a.y}" x2="${m.b.x}" y2="${m.b.y}" ` +
         `stroke="${gesel ? 'var(--accent)' : 'var(--muur)'}" stroke-width="${(m.dikte || 0.1)}" stroke-linecap="square"/>`;
@@ -135,8 +141,8 @@ export class PlanCanvas {
     if (ui.stap >= 2 || voorExport) {
       s += '<g class="laag-verbindingen">';
       for (const v of p.verbindingen) {
-        const a = p.componenten.find((c) => c.id === v.van);
-        const b = p.componenten.find((c) => c.id === v.naar);
+        const a = componenten.find((c) => c.id === v.van);
+        const b = componenten.find((c) => c.id === v.naar);
         if (!a || !b) continue;
         const mx = (a.x + b.x) / 2;
         const my = Math.min(a.y, b.y) - afstand(a, b) * 0.18;
@@ -148,10 +154,10 @@ export class PlanCanvas {
 
     // Bouwkundige elementen eerst (ze snijden de muur weg), dan de symbolen
     s += '<g class="laag-bouw">';
-    for (const c of p.componenten) if (def(c.type).kringtype === 'bouw') s += this.componentSVG(c, symM, lijn, voorExport);
+    for (const c of componenten) if (def(c.type).kringtype === 'bouw') s += this.componentSVG(c, symM, lijn, voorExport);
     s += '</g>';
     s += '<g class="laag-componenten">';
-    for (const c of p.componenten) if (def(c.type).kringtype !== 'bouw') s += this.componentSVG(c, symM, lijn, voorExport);
+    for (const c of componenten) if (def(c.type).kringtype !== 'bouw') s += this.componentSVG(c, symM, lijn, voorExport);
     s += '</g>';
 
     if (!voorExport) s += this.overlay(lijn, symM);
@@ -310,8 +316,11 @@ export class PlanCanvas {
     const toonKring = (store.ui.stap === 3 || kleurPerKring || store.ui.toonKringnummers) && kring;
     if ((store.ui.toonLabels || voorExport) && (c.label || toonKring)) {
       const h = Math.max(0.17, 11 / this.view.zoom);
-      const tekst = toonKring ? `${kring.nummer}${c.label ? ' · ' + c.label : ''}` : c.label;
-      s += `<text x="${c.x}" y="${c.y + symM * 0.95 + h}" text-anchor="middle" font-size="${h}" ` +
+      const code = (this._indeling && this._indeling.puntcode.get(c.id)) || (kring ? String(kring.nummer) : '');
+      const tekst = toonKring ? `${code}${c.label ? ' · ' + c.label : ''}` : c.label;
+      const onder = d.wand !== false;
+      const ty = onder ? c.y + symM * 0.95 + h : c.y - symM * 0.95 - h * 0.4;
+      s += `<text x="${c.x}" y="${ty}" text-anchor="middle" font-size="${h}" ` +
         `fill="${toonKring ? kring.kleur : 'var(--tekst-plan-zacht)'}" font-weight="600" ` +
         `font-family="system-ui, sans-serif" style="pointer-events:none">${escape(String(tekst))}</text>`;
     }
@@ -417,11 +426,11 @@ export class PlanCanvas {
    * ---------------------------------------------------------------- */
   alleSegmenten() {
     const lijst = [];
-    for (const r of store.project.plan.ruimtes) {
+    for (const r of store.ruimtesVanNiveau()) {
       const mid = zwaartepunt(r.punten);
       for (const [a, b] of segmenten(r.punten)) lijst.push({ a, b, binnen: mid });
     }
-    for (const m of store.project.plan.muren) lijst.push({ a: m.a, b: m.b, binnen: null });
+    for (const m of store.murenVanNiveau()) lijst.push({ a: m.a, b: m.b, binnen: null });
     return lijst;
   }
 
@@ -466,8 +475,8 @@ export class PlanCanvas {
       const d = afstand(punt, p);
       if (d < max && (!beste || d < beste.d)) beste = { d, p };
     };
-    for (const r of store.project.plan.ruimtes) r.punten.forEach(kijk);
-    for (const m of store.project.plan.muren) { kijk(m.a); kijk(m.b); }
+    for (const r of store.ruimtesVanNiveau()) r.punten.forEach(kijk);
+    for (const m of store.murenVanNiveau()) { kijk(m.a); kijk(m.b); }
     return beste ? { x: beste.p.x, y: beste.p.y } : null;
   }
 
@@ -531,7 +540,7 @@ export class PlanCanvas {
   }
 
   ruimteOp(punt) {
-    const ruimtes = store.project.plan.ruimtes;
+    const ruimtes = store.ruimtesVanNiveau();
     for (let i = ruimtes.length - 1; i >= 0; i--) {
       if (puntInPolygoon(punt, ruimtes[i].punten)) return ruimtes[i];
     }
@@ -552,6 +561,7 @@ export class PlanCanvas {
         rot: pos.rot,
         label: '',
         ruimteId: ruimte ? ruimte.id : null,
+        niveauId: store.niveau ? store.niveau.id : null,
         kringId: store.ui.stap === 3 ? store.ui.actieveKring : null,
         hoogte: d.hoogte ?? null,
         watt: d.watt ?? null,
@@ -800,7 +810,7 @@ export class PlanCanvas {
         break;
       }
       case 'onderlaag': {
-        const ol = store.project.plan.onderlaag;
+        const ol = store.niveau && store.niveau.onderlaag;
         if (ol) {
           ol.x = +(ol.x + (w.x - a.start.x)).toFixed(3);
           ol.y = +(ol.y + (w.y - a.start.y)).toFixed(3);
@@ -841,7 +851,7 @@ export class PlanCanvas {
       case 'rubber': {
         if (!a.huidig) break;
         const b = omhullende([a.start, a.huidig]);
-        const gevonden = store.project.componenten
+        const gevonden = store.componentenVanNiveau()
           .filter((c) => c.x >= b.x1 && c.x <= b.x2 && c.y >= b.y1 && c.y <= b.y2)
           .map((c) => c.id);
         if (gevonden.length) store.selecteer(gevonden, e.shiftKey);
@@ -889,7 +899,7 @@ export class PlanCanvas {
         punten: punten.map((pt) => ({ x: +pt.x.toFixed(3), y: +pt.y.toFixed(3) })),
         kleur: d.kleur,
         muurdikte: 0.09,
-        niveauId: p.plan.niveaus[0] && p.plan.niveaus[0].id,
+        niveauId: store.niveau ? store.niveau.id : (p.plan.niveaus[0] && p.plan.niveaus[0].id),
       };
       p.plan.ruimtes.push(r);
       id = r.id;
@@ -914,7 +924,10 @@ export class PlanCanvas {
     store.setUI({ bezigMuur: null, lengteInvoer: '' });
     if (!start || afstand(start, p) < 0.15) return;
     store.commit('muur getekend', (prj) => {
-      prj.plan.muren.push({ id: uid('mur'), a: { x: start.x, y: start.y }, b: { x: p.x, y: p.y }, dikte: 0.1 });
+      prj.plan.muren.push({
+        id: uid('mur'), a: { x: start.x, y: start.y }, b: { x: p.x, y: p.y }, dikte: 0.1,
+        niveauId: store.niveau ? store.niveau.id : null,
+      });
     });
   }
 
@@ -968,7 +981,7 @@ export class PlanCanvas {
   /** Koppelt elke component opnieuw aan de ruimte waarin hij ligt. */
   herberekenRuimtes() {
     let gewijzigd = false;
-    for (const c of store.project.componenten) {
+    for (const c of store.componentenVanNiveau()) {
       const r = this.ruimteOp({ x: c.x, y: c.y }) ||
         this.dichtstbijzijndeRuimte({ x: c.x, y: c.y });
       const nieuw = r ? r.id : null;
@@ -979,7 +992,7 @@ export class PlanCanvas {
 
   dichtstbijzijndeRuimte(punt) {
     let beste = null;
-    for (const r of store.project.plan.ruimtes) {
+    for (const r of store.ruimtesVanNiveau()) {
       for (const [a, b] of segmenten(r.punten)) {
         const pr = projecteerOpSegment(punt, a, b);
         if (pr.afstand < 0.6 && (!beste || pr.afstand < beste.afstand)) beste = { afstand: pr.afstand, r };

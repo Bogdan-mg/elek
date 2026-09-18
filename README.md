@@ -63,6 +63,13 @@ service worker.
 
 ## Werken met de app
 
+### Verdiepingen
+Boven het plan staat een balkje met de verdiepingen. Met **+** voeg je er een
+toe; je kan de ruimtes, deuren en ramen van het huidige niveau meteen meenemen
+als vertrekpunt. Elke verdieping heeft haar eigen grondplan-onderlaag, en bij
+het afdrukken krijgt elke verdieping een eigen blad. De kringen en het
+eendraadschema gelden voor de hele installatie.
+
 ### Stap 1 — situatieschema
 * **Ruimte**: klik twee hoeken (of sleep). **Vorm**: klik punt per punt,
   <kbd>Enter</kbd> of een klik op het eerste punt sluit de vorm. **Muur**: losse
@@ -125,6 +132,15 @@ Onderaan staat een titelhoek met klant, adres, spanning en datum. Met *Passend*
 of *100 %* schakel je tussen het volledige schema in beeld en ware grootte.
 Daaronder staat per zekering welke componenten erop zitten, gegroepeerd per
 ruimte.
+
+### Puntcodes
+Net zoals in een Trikker-dossier krijgt elk punt een code: de letter van de
+kring plus het nummer van de aftakking op het eendraadschema (`F5` = kring F,
+aftakking 5). Die code staat onder het symbool op het situatieschema, links van
+de aftakking op het eendraadschema en in de lijst per zekering, zodat beide
+tekeningen naar hetzelfde punt verwijzen. De letters lopen zoals op het bord:
+`A` is de hoofdautomaat met differentieel, daarna krijgt elk differentieel en
+elke kring de volgende letter.
 
 ### Symbolen
 De symbolen volgen **AREI Boek 1, tabel 2.23** (grafische symbolen), dezelfde

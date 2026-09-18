@@ -398,3 +398,19 @@ kbd { background: var(--vlak-3); border: 1px solid var(--rand); border-radius: 5
 .bord-kop h2 { margin: 0; }
 .bord-knoppen { margin-left: auto; display: flex; gap: 6px; flex: none; }
 .bord-schema.passend svg { width: 100%; height: auto; }
+
+/* Verdiepingen */
+.niveaubalk {
+  position: absolute; left: 12px; top: 12px; display: flex; gap: 4px; align-items: center;
+  background: var(--vlak); border: 1px solid var(--rand); border-radius: 999px;
+  padding: 3px; box-shadow: var(--schaduw); max-width: calc(100% - 24px); overflow-x: auto;
+}
+.niveaubalk button {
+  border: 0; background: transparent; color: var(--tekst-zacht); border-radius: 999px;
+  padding: 6px 13px; font-size: 13px; white-space: nowrap;
+}
+.niveaubalk button.actief { background: var(--accent); color: #fff; font-weight: 600; }
+.niveaubalk button.toevoegen { color: var(--tekst-zacht); font-size: 16px; padding: 4px 11px; }
+.niveaubalk button:hover:not(.actief) { background: var(--vlak-3); }
+
+.puntcode { font-size: 11px; color: var(--tekst-zacht); font-weight: 700; }

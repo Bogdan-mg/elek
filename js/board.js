@@ -7,6 +7,7 @@
 import store from './store.js';
 import { def, ruimteDef } from './model.js';
 import { componentenVanKring, puntenInKring, vermogenVanKring } from './circuits.js';
+import { bordIndeling, banden } from './indeling.js';
 import { symbool, symboolOpLeiding } from './symbols.js';
 import { escape } from './canvas.js';
 
@@ -81,44 +82,6 @@ function polen(kring, fasen = 1) {
  * Aftakkingen van een kring bepalen
  * ------------------------------------------------------------------ */
 
-/**
- * Verdeelt de componenten van een kring over genummerde aftakkingen:
- * een schakelaar staat samen met de verlichting die hij bedient, en
- * verder krijgt elke groep gelijke toestellen een eigen aftakking.
- */
-function bouwRijen(project, kring) {
-  const comps = componentenVanKring(project, kring.id);
-  const gebruikt = new Set();
-  const rijen = [];
-
-  for (const c of comps) {
-    if (def(c.type).kringtype !== 'bediening' || gebruikt.has(c.id)) continue;
-    const verbonden = project.verbindingen
-      .filter((v) => v.van === c.id || v.naar === c.id)
-      .map((v) => (v.van === c.id ? v.naar : v.van))
-      .map((id) => comps.find((x) => x.id === id))
-      .filter((x) => x && !gebruikt.has(x.id));
-    gebruikt.add(c.id);
-    for (const v of verbonden) gebruikt.add(v.id);
-    rijen.push([c, ...verbonden]);
-  }
-
-  const groepen = new Map();
-  for (const c of comps) {
-    if (gebruikt.has(c.id)) continue;
-    const r = c.ruimteId && project.plan.ruimtes.find((x) => x.id === c.ruimteId);
-    const ruimte = r ? (r.naam || ruimteDef(r.type).naam) : '';
-    const sleutel = `${c.type}|${c.label || ''}|${ruimte}`;
-    if (!groepen.has(sleutel)) groepen.set(sleutel, []);
-    groepen.get(sleutel).push(c);
-  }
-  const orde = { verlichting: 0, bediening: 1, stopcontact: 2, vast: 3, zwakstroom: 4, verdeling: 5 };
-  const rest = [...groepen.values()].sort(
-    (a, b) => (orde[def(a[0].type).kringtype] ?? 9) - (orde[def(b[0].type).kringtype] ?? 9)
-  );
-  return [...rijen, ...rest];
-}
-
 /** Naam van de ruimte van een component. */
 function ruimteVan(project, comp) {
   const r = comp.ruimteId && project.plan.ruimtes.find((x) => x.id === comp.ruimteId);
@@ -131,17 +94,15 @@ function ruimteVan(project, comp) {
 export function bouwBordSVG(project = store.project) {
   const fasen = project.net.fasen || 1;
 
-  // 1. kringen per differentieel
-  const gebruikteDif = project.differentiëlen.filter((d) => project.kringen.some((k) => k.differentieelId === d.id));
-  const banden = gebruikteDif.map((d) => ({ dif: d, kringen: project.kringen.filter((k) => k.differentieelId === d.id) }));
-  const wees = project.kringen.filter((k) => !gebruikteDif.some((d) => d.id === k.differentieelId));
-  if (wees.length) banden.push({ dif: null, kringen: wees });
+  // 1. kringen per differentieel, met de letters van het bord
+  const indeling = bordIndeling(project);
+  const bandenLijst = banden(project);
 
   // 2. kolommen met hun eigen breedte en aftakkingen
   const kolommen = [];
-  for (const band of banden) {
+  for (const band of bandenLijst) {
     band.kringen.forEach((k, i) => {
-      const rijen = bouwRijen(project, k);
+      const rijen = indeling.rijenVan.get(k.id) || [];
       const breedste = Math.max(1, ...rijen.map((r) => Math.min(r.length, 12)));
       kolommen.push({
         dif: band.dif,
@@ -153,7 +114,7 @@ export function bouwBordSVG(project = store.project) {
     });
   }
   if (!kolommen.length) {
-    kolommen.push({ dif: banden[0] ? banden[0].dif : project.differentiëlen[0] || null, eersteVanDif: true, kring: null, rijen: [], breedte: KOL_MIN });
+    kolommen.push({ dif: bandenLijst[0] ? bandenLijst[0].dif : project.differentiëlen[0] || null, eersteVanDif: true, kring: null, rijen: [], breedte: KOL_MIN });
   }
 
   // 3. kolommen over bladen verdelen; een differentieel blijft samen
@@ -262,6 +223,8 @@ export function bouwBordSVG(project = store.project) {
         if (kol.dif) {
           const kleur = kol.dif.gevoeligheid <= 30 ? 'var(--accent)' : LIJN;
           s += hefboom(dx, hoofdY - 40, kleur, 2.2);
+          s += `<text x="${dx - 26}" y="${hoofdY - 34}" font-size="11" font-weight="700" fill="var(--tekst)">` +
+            `${indeling.difLetter.get(kol.dif.id) || ''}</text>`;
           s += kortsluitvak(dx + 8, hoofdY - 20, kol.dif.kortsluit || 3000);
           s += gedraaid(dx - 10, hoofdY - 6, escape(kort(kol.dif.naam, 13)), { vet: true, grootte: 10 });
           s += gedraaid(dx + 46, hoofdY - 6, `Δ${kol.dif.gevoeligheid} mA · type ${kol.dif.type || 'A'}`, { grootte: 9, kleur: kleur });
@@ -287,9 +250,10 @@ export function bouwBordSVG(project = store.project) {
 
       // automaat met kringletter, kortsluitvermogen en aanduiding
       s += hefboom(x, railY - 16, LIJN, 2);
-      s += `<circle cx="${x - 26}" cy="${railY - 14}" r="9.5" fill="${k.kleur}"/>`;
+      const letter = indeling.kringLetter.get(k.id) || String(k.nummer);
+      s += `<circle cx="${x - 26}" cy="${railY - 14}" r="10" fill="${k.kleur}"/>`;
       s += `<text x="${x - 26}" y="${railY - 14}" text-anchor="middle" dominant-baseline="central" ` +
-        `font-size="10" font-weight="700" fill="#fff">${k.nummer}</text>`;
+        `font-size="11" font-weight="700" fill="#fff">${letter}</text>`;
       s += kortsluitvak(x + 6, railY - 24, k.kortsluit || 3000);
       s += gedraaid(x + 42, railY - 6, `${polen(k, fasen)} - ${k.curve || 'C'} ${k.amp}A`, { grootte: 9.5 });
 
@@ -304,7 +268,7 @@ export function bouwBordSVG(project = store.project) {
         const zichtbaar = rij.slice(0, 12);
         const eindeX = x + 26 + Math.max(0, zichtbaar.length - 1) * SYM_STAP + 12;
         s += `<line x1="${x}" y1="${ry}" x2="${eindeX}" y2="${ry}" stroke="${LIJN}" stroke-width="1.4"/>`;
-        s += `<text x="${x - 9}" y="${ry + 3}" text-anchor="end" font-size="9.5" fill="var(--tekst)">${ri + 1}</text>`;
+        s += `<text x="${x - 9}" y="${ry + 3}" text-anchor="end" font-size="9.5" fill="var(--tekst)">${letter}${ri + 1}</text>`;
         zichtbaar.forEach((c, ci) => {
           s += symboolOpLeiding(c.type, x + 26 + ci * SYM_STAP, ry, 0.26, LIJN, 6);
         });
@@ -365,6 +329,7 @@ export function bouwBordTabel(project = store.project) {
   if (!project.kringen.length) {
     return '<p class="leeg">Nog geen kringen. Ga naar stap 3 en maak kringen aan of gebruik “Automatisch verdelen”.</p>';
   }
+  const indeling = bordIndeling(project);
   let h = '';
   for (const k of project.kringen) {
     const dif = project.differentiëlen.find((d) => d.id === k.differentieelId);
@@ -401,8 +366,10 @@ export function bouwBordTabel(project = store.project) {
         h += `<div class="kring-ruimte"><strong>${escape(ruimte)}</strong><ul>`;
         for (const { comp, aantal } of samengevat.values()) {
           const d = def(comp.type);
+          const code = indeling.puntcode.get(comp.id);
           h += `<li><span class="mini-sym"><svg viewBox="-56 -56 112 112" width="18" height="18" fill="none" stroke="currentColor" stroke-width="7">${symbool(comp.type)}</svg></span>` +
-            `${aantal > 1 ? aantal + '× ' : ''}${escape(d.naam)}${comp.label ? ' — ' + escape(comp.label) : ''}</li>`;
+            `${code ? `<b class="puntcode">${code}</b> ` : ''}${aantal > 1 ? aantal + '× ' : ''}${escape(d.naam)}` +
+            `${comp.label ? ' — ' + escape(comp.label) : ''}</li>`;
         }
         h += '</ul></div>';
       }

@@ -30,6 +30,7 @@ function start() {
     if (reden === 'project-licht') return;
     tekenLinks();
     tekenRechts();
+    tekenNiveaus();
     if (store.ui.weergave === 'bord') tekenBord();
     werkbalkBij();
   });
@@ -40,6 +41,7 @@ function start() {
 
   tekenLinks();
   tekenRechts();
+  tekenNiveaus();
   werkbalkBij();
   canvas.zoomNaarAlles();
   document.title = (store.project.naam || 'Elek') + ' — Elek';
@@ -86,6 +88,11 @@ function bindWerkbalk() {
       case 'sluit-paneel':
         document.body.classList.remove('links-open', 'rechts-open', 'menu-open');
         break;
+      case 'niveau':
+        store.zetNiveau(knop.dataset.id);
+        canvas.zoomNaarAlles();
+        break;
+      case 'niveau-nieuw': nieuwNiveau(); break;
       case 'onderlaag': $('#onderlaag-invoer').click(); break;
       case 'voorbeeld': laadVoorbeeld(); break;
       case 'bord-passend':
@@ -148,9 +155,43 @@ function zetStap(stap) {
   canvas.render();
 }
 
+/** Voegt een verdieping toe, eventueel met de ruimtes van het huidige niveau. */
+function nieuwNiveau() {
+  const niveaus = store.project.plan.niveaus;
+  const voorstel = niveaus.length === 1 ? '1e verdieping' : `${niveaus.length}e verdieping`;
+  const naam = prompt('Naam van de verdieping:', voorstel);
+  if (naam === null) return;
+  const kopieer = store.ruimtesVanNiveau().length > 0 &&
+    confirm('De ruimtes van dit niveau meenemen als vertrekpunt?\n(De componenten komen niet mee.)');
+  let nieuwId = null;
+  store.commit('verdieping toegevoegd', (p) => {
+    const niveau = { id: uid('niv'), naam: naam.trim() || voorstel, onderlaag: null };
+    p.plan.niveaus.push(niveau);
+    nieuwId = niveau.id;
+    if (kopieer) {
+      const bron = store.niveau;
+      for (const r of p.plan.ruimtes.filter((x) => x.niveauId === bron.id)) {
+        p.plan.ruimtes.push({ ...r, id: uid('rmt'), niveauId: niveau.id, punten: r.punten.map((pt) => ({ ...pt })) });
+      }
+      for (const m of p.plan.muren.filter((x) => x.niveauId === bron.id)) {
+        p.plan.muren.push({ ...m, id: uid('mur'), niveauId: niveau.id, a: { ...m.a }, b: { ...m.b } });
+      }
+      for (const c of p.componenten.filter((x) => x.niveauId === bron.id && def(x.type).kringtype === 'bouw')) {
+        p.componenten.push({ ...c, id: uid('cmp'), niveauId: niveau.id, ruimteId: null, kringId: null });
+      }
+    }
+  });
+  if (nieuwId) {
+    store.zetNiveau(nieuwId);
+    if (kopieer) canvas.herberekenRuimtes();
+    canvas.zoomNaarAlles();
+  }
+}
+
 function zetWeergave(weergave) {
   store.ui.weergave = weergave;
   $('#werkvlak').classList.toggle('toon-bord', weergave === 'bord');
+  $('#niveaubalk').hidden = weergave === 'bord';
   if (weergave === 'bord') tekenBord();
   werkbalkBij();
   canvas.render();
@@ -211,6 +252,18 @@ function werkHudBij() {
   hud.innerHTML = `<b>${maat}</b>` +
     (invoer ? `<span class="hud-invoer">${invoer} m → Enter</span>` : '<span class="hud-tip">typ een lengte + Enter</span>') +
     `<span class="hud-tip">${tip}</span>`;
+}
+
+/** Balkje met de verdiepingen boven het plan. */
+function tekenNiveaus() {
+  const balk = $('#niveaubalk');
+  if (!balk) return;
+  const niveaus = store.project.plan.niveaus;
+  const actief = store.niveau;
+  balk.innerHTML = niveaus
+    .map((n) => `<button data-app="niveau" data-id="${n.id}" class="${n.id === (actief && actief.id) ? 'actief' : ''}">${n.naam}</button>`)
+    .join('') + '<button class="toevoegen" data-app="niveau-nieuw" title="Verdieping toevoegen">+</button>';
+  balk.hidden = store.ui.weergave === 'bord';
 }
 
 function tekenBord() {
@@ -370,6 +423,7 @@ function laadVoorbeeld() {
       prj.componenten.push({
         id: uid('cmp'), type, x: pos.x, y: pos.y, rot: pos.rot, label: '',
         ruimteId: ruimte ? ruimte.id : null, kringId: null,
+        niveauId: prj.plan.niveaus[0].id,
         hoogte: d.hoogte ?? null, watt: d.watt ?? null,
         breedte: type === 'trap' ? 0.85 : (d.breedte ?? null), diepte: type === 'trap' ? 2.2 : (d.diepte ?? null),
         opmerking: '',

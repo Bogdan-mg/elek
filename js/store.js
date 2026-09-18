@@ -38,6 +38,7 @@ export const store = {
     kleurPerKring: false,
     toonKringnummers: true,
     filterGroep: 'alle',
+    niveauId: null,
   },
 
   _luisteraars: new Set(),
@@ -136,6 +137,32 @@ export const store = {
   },
 
   isGeselecteerd(id) { return this.ui.selectie.includes(id); },
+
+  // --- Niveaus ------------------------------------------------------
+  get niveaus() { return this.project.plan.niveaus; },
+
+  /** Het niveau waarop nu getekend wordt. */
+  get niveau() {
+    const lijst = this.project.plan.niveaus;
+    return lijst.find((n) => n.id === this.ui.niveauId) || lijst[0];
+  },
+
+  zetNiveau(id) {
+    this.ui.niveauId = id;
+    this.ui.selectie = [];
+    this.emit('niveau');
+  },
+
+  opNiveau(obj) {
+    const n = this.niveau;
+    if (!n) return true;
+    const id = obj.niveauId || (this.project.plan.niveaus[0] && this.project.plan.niveaus[0].id);
+    return id === n.id;
+  },
+
+  ruimtesVanNiveau() { return this.project.plan.ruimtes.filter((r) => this.opNiveau(r)); },
+  murenVanNiveau() { return this.project.plan.muren.filter((m) => this.opNiveau(m)); },
+  componentenVanNiveau() { return this.project.componenten.filter((c) => this.opNiveau(c)); },
 
   // --- Zoekfuncties -------------------------------------------------
   component(id) { return this.project.componenten.find((c) => c.id === id); },

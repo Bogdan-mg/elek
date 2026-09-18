@@ -13,6 +13,7 @@ import {
   autoVerdeel, controleer, maxPuntenVan, totaalVermogen, heeftKringNodig,
 } from './circuits.js';
 import { oppervlakte, omhullende, afstand, segmenten } from './geometry.js';
+import { bordIndeling } from './indeling.js';
 
 /** Omtrek van een polygoon. */
 function omtrek(punten) {
@@ -73,8 +74,8 @@ function paneelPlattegrond() {
       <button class="mini" data-actie="stop-polygoon">Annuleren</button></div>`;
   }
 
-  if (p.plan.onderlaag) {
-    const ol = p.plan.onderlaag;
+  if (store.niveau && store.niveau.onderlaag) {
+    const ol = store.niveau.onderlaag;
     h += `<div class="lijst-kop"><h3>Ingescand grondplan</h3></div>
       <li class="rij" data-actie="selecteer" data-id="onderlaag" style="list-style:none">
         <span class="rij-naam">${escape(ol.naam || 'grondplan')}</span>
@@ -287,8 +288,9 @@ function paneelComponent(c) {
       <input type="text" value="${escape(c.label || '')}" placeholder="bv. bureau links" data-actie="comp-label"></label>
     ${d.kringtype === 'bouw' ? '' : `<label class="veld"><span>Kring / zekering</span>${kringKeuze(c.kringId)}</label>`}`;
   if (kring) {
+    const code = bordIndeling(store.project).puntcode.get(c.id);
     h += `<p class="kring-samenvatting" style="--kring:${kring.kleur}">
-      Kring ${kring.nummer}: ${kring.amp} A · ${kring.mm2} mm²${kring.differentieelId && store.differentieel(kring.differentieelId) ? ` · Δ${store.differentieel(kring.differentieelId).gevoeligheid} mA` : ''}</p>`;
+      ${code ? `Punt <strong>${code}</strong> · ` : ''}kring ${kring.nummer}: ${kring.amp} A · ${kring.mm2} mm²${kring.differentieelId && store.differentieel(kring.differentieelId) ? ` · Δ${store.differentieel(kring.differentieelId).gevoeligheid} mA` : ''}</p>`;
   }
   h += d.kringtype === 'bouw'
     ? `<div class="veld-rij">
@@ -359,7 +361,7 @@ function paneelRuimte(r) {
 }
 
 function paneelOnderlaag() {
-  const ol = store.project.plan.onderlaag;
+  const ol = store.niveau && store.niveau.onderlaag;
   if (!ol) return paneelProject();
   return `<div class="paneel-kop"><h2>Grondplan</h2>
       <p>${escape(ol.naam || 'ingescand plan')} · ${ol.breedte.toFixed(2)} × ${ol.hoogte.toFixed(2)} m</p></div>
@@ -399,6 +401,14 @@ function paneelProject() {
       <label class="veld"><span>Hoofdzekering</span>
         <select data-actie="prj-hoofd">${[25, 32, 40, 50, 63, 80].map((a) => `<option value="${a}"${p.net.hoofdzekering === a ? ' selected' : ''}>${a} A</option>`).join('')}</select></label>
     </div>
+    <div class="lijst-kop"><h3>Verdiepingen</h3></div><ul class="lijst">
+      ${p.plan.niveaus.map((n) => `<li class="rij${store.niveau && store.niveau.id === n.id ? ' geselecteerd' : ''}">
+        <input class="inline-invoer" value="${escape(n.naam)}" data-actie="niveau-naam" data-id="${n.id}">
+        <span class="rij-meta">${p.plan.ruimtes.filter((r) => r.niveauId === n.id).length} ruimtes ·
+          ${p.componenten.filter((c) => c.niveauId === n.id).length} comp.</span>
+        ${p.plan.niveaus.length > 1 ? `<button class="mini gevaar" data-actie="verwijder-niveau" data-id="${n.id}" title="Verdieping verwijderen">×</button>` : ''}
+      </li>`).join('')}
+    </ul>
     <div class="cijfers">
       <div><strong>${p.plan.ruimtes.length}</strong><span>ruimtes</span></div>
       <div><strong>${p.componenten.filter((c) => def(c.type).kringtype !== 'bouw').length}</strong><span>componenten</span></div>
@@ -489,9 +499,28 @@ function klik(e) {
       store.selecteer(ids);
       break;
     }
+    case 'verwijder-niveau': {
+      const niveau = store.project.plan.niveaus.find((n) => n.id === id);
+      if (!niveau) break;
+      const aantal = store.project.componenten.filter((c) => c.niveauId === id).length +
+        store.project.plan.ruimtes.filter((r) => r.niveauId === id).length;
+      if (aantal && !confirm(`“${niveau.naam}” verwijderen met ${aantal} getekende onderdelen?`)) break;
+      store.commit('verdieping verwijderd', (p) => {
+        p.plan.niveaus = p.plan.niveaus.filter((n) => n.id !== id);
+        const weg = new Set(p.plan.ruimtes.filter((r) => r.niveauId === id).map((r) => r.id));
+        p.plan.ruimtes = p.plan.ruimtes.filter((r) => r.niveauId !== id);
+        p.plan.muren = p.plan.muren.filter((m) => m.niveauId !== id);
+        const compWeg = new Set(p.componenten.filter((c) => c.niveauId === id).map((c) => c.id));
+        p.componenten = p.componenten.filter((c) => c.niveauId !== id);
+        p.verbindingen = p.verbindingen.filter((v) => !compWeg.has(v.van) && !compWeg.has(v.naar));
+        void weg;
+      });
+      if (store.ui.niveauId === id) store.zetNiveau(store.project.plan.niveaus[0].id);
+      break;
+    }
     case 'onderlaag-weg':
       if (!confirm('Het ingescande grondplan verwijderen?')) return;
-      store.commit('grondplan verwijderd', (p) => { p.plan.onderlaag = null; });
+      store.commit('grondplan verwijderd', () => { if (store.niveau) store.niveau.onderlaag = null; });
       store.selecteer([]);
       break;
     case 'verwijder-selectie': verwijderSelectie(); break;
@@ -512,7 +541,7 @@ function invoer(e) {
 
   if (actie === 'zoek') { store.setUI({ zoek: waarde }); return; }
   if (actie === 'onderlaag-dekking') {
-    const ol = store.project.plan.onderlaag;
+    const ol = store.niveau && store.niveau.onderlaag;
     if (ol) { ol.dekking = Number(waarde) / 100; store.bewaar(); store.emit('project-licht'); }
     return;
   }
@@ -545,6 +574,11 @@ function invoer(e) {
   if (actie === 'dif-naam') {
     const d = store.differentieel(veld.dataset.id);
     if (d) { d.naam = waarde; store.bewaar(); }
+    return;
+  }
+  if (actie === 'niveau-naam') {
+    const niveau = store.project.plan.niveaus.find((n) => n.id === veld.dataset.id);
+    if (niveau) { niveau.naam = waarde; store.bewaar(); store.emit('project-licht'); }
     return;
   }
   if (actie === 'prj-naam') { store.project.naam = waarde; store.bewaar(); document.title = waarde + ' — Elek'; return; }
@@ -629,8 +663,8 @@ function wijzig(e) {
     case 'onderlaag-breedte': {
       const nieuw = Number(waarde);
       if (!(nieuw > 0.2)) break;
-      store.commit('schaal grondplan', (p) => {
-        const ol = p.plan.onderlaag;
+      store.commit('schaal grondplan', () => {
+        const ol = store.niveau && store.niveau.onderlaag;
         if (!ol) return;
         const verhouding = ol.hoogte / ol.breedte;
         ol.breedte = nieuw;
@@ -639,10 +673,10 @@ function wijzig(e) {
       break;
     }
     case 'onderlaag-zichtbaar':
-      store.commit('grondplan getoond', (p) => { if (p.plan.onderlaag) p.plan.onderlaag.zichtbaar = veld.checked; });
+      store.commit('grondplan getoond', () => { if (store.niveau && store.niveau.onderlaag) store.niveau.onderlaag.zichtbaar = veld.checked; });
       break;
     case 'onderlaag-vergrendeld':
-      store.commit('grondplan vergrendeld', (p) => { if (p.plan.onderlaag) p.plan.onderlaag.vergrendeld = veld.checked; });
+      store.commit('grondplan vergrendeld', () => { if (store.niveau && store.niveau.onderlaag) store.niveau.onderlaag.vergrendeld = veld.checked; });
       break;
     case 'ruimte-kleur':
       store.commit('kleur gewijzigd', () => { const r = store.ruimte(store.ui.selectie[0]); if (r) r.kleur = waarde; });

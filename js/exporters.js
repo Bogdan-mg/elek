@@ -4,7 +4,7 @@ import store from './store.js';
 import { omhullende } from './geometry.js';
 import { bouwBordSVG, bouwBordTabel } from './board.js';
 import { escape } from './canvas.js';
-import { migreer } from './model.js';
+import { migreer, def } from './model.js';
 
 // Vaste kleuren voor export en afdruk (altijd licht, ook in donkere modus).
 const EXPORT_KLEUREN = {
@@ -47,7 +47,7 @@ export function planOmhullende(marge = 0.8) {
   };
 }
 
-/** Losstaande SVG van het situatieschema. */
+/** Losstaande SVG van het situatieschema, met titelhoek zoals op een dossier. */
 export function planSVG(canvas, { pxPerMeter = 80, titel = true } = {}) {
   const vb = planOmhullende();
   const bewaardeZoom = canvas.view.zoom;
@@ -56,20 +56,47 @@ export function planSVG(canvas, { pxPerMeter = 80, titel = true } = {}) {
   canvas.view.zoom = bewaardeZoom;
 
   const p = store.project;
-  const kopHoogte = titel ? 0.9 : 0;
+  const niveau = store.niveau;
+  const px = (n) => n / pxPerMeter;                          // beeldpunten naar meter
+  const voet = titel ? px(78) : 0;                           // titelhoek onderaan
+  const kop = titel ? px(30) : 0;                            // naam van de verdieping
+  const totaalH = vb.h + voet + kop;
   const w = vb.w * pxPerMeter;
-  const h = (vb.h + kopHoogte) * pxPerMeter;
+  const h = totaalH * pxPerMeter;
+  const e = px(10);                                          // eenheid voor de titelhoek
+
   let s = `<svg xmlns="http://www.w3.org/2000/svg" width="${Math.round(w)}" height="${Math.round(h)}" ` +
-    `viewBox="${vb.x} ${vb.y - kopHoogte} ${vb.w} ${vb.h + kopHoogte}" style="${kleurStijl()}">`;
-  s += `<rect x="${vb.x}" y="${vb.y - kopHoogte}" width="${vb.w}" height="${vb.h + kopHoogte}" fill="#ffffff"/>`;
-  if (titel) {
-    s += `<text x="${vb.x + 0.2}" y="${vb.y - kopHoogte + 0.45}" font-size="0.36" font-weight="700" ` +
-      `font-family="system-ui, sans-serif" fill="#111827">${escape(p.naam || 'Situatieschema')}</text>`;
-    const onder = [p.klant, p.adres, new Date().toLocaleDateString('nl-BE')].filter(Boolean).join(' · ');
-    s += `<text x="${vb.x + 0.2}" y="${vb.y - kopHoogte + 0.78}" font-size="0.22" ` +
-      `font-family="system-ui, sans-serif" fill="#6b7280">${escape(onder)}</text>`;
+    `viewBox="${vb.x} ${vb.y - kop} ${vb.w} ${totaalH}" style="${kleurStijl()}" font-family="system-ui, sans-serif">`;
+  s += `<rect x="${vb.x}" y="${vb.y - kop}" width="${vb.w}" height="${totaalH}" fill="#ffffff"/>`;
+
+  if (titel && niveau) {
+    s += `<text x="${vb.x + px(6)}" y="${vb.y - kop + px(19)}" font-size="${px(16)}" font-weight="700" fill="#111827">` +
+      `${escape(niveau.naam)}</text>`;
   }
   s += inhoud;
+
+  if (titel) {
+    const ty = vb.y + vb.h + px(10);
+    const th = px(62);
+    const tb = vb.w - px(12);
+    const tx = vb.x + px(6);
+    const k1 = tb * 0.5, k2 = tb * 0.78;
+    const r = '#9ca3af';
+    s += `<rect x="${tx}" y="${ty}" width="${tb}" height="${th}" fill="none" stroke="${r}" stroke-width="${px(1)}"/>`;
+    s += `<line x1="${tx + k1}" y1="${ty}" x2="${tx + k1}" y2="${ty + th}" stroke="${r}" stroke-width="${px(1)}"/>`;
+    s += `<line x1="${tx + k2}" y1="${ty}" x2="${tx + k2}" y2="${ty + th}" stroke="${r}" stroke-width="${px(1)}"/>`;
+    const rg = (x, y, tekst, grootte, vet, kleur) =>
+      `<text x="${x}" y="${y}" font-size="${px(grootte)}" ${vet ? 'font-weight="700" ' : ''}fill="${kleur}">${tekst}</text>`;
+    s += rg(tx + px(8), ty + px(16), 'Plaats van de elektrische installatie', 10.5, true, '#111827');
+    s += rg(tx + px(14), ty + px(33), escape(p.klant || ''), 10.5, false, '#111827');
+    s += rg(tx + px(14), ty + px(48), escape(p.adres || ''), 10.5, false, '#111827');
+    s += rg(tx + k1 + px(8), ty + px(16), 'Installatie', 10.5, true, '#111827');
+    s += rg(tx + k1 + px(14), ty + px(33), escape(p.naam || ''), 10.5, false, '#111827');
+    s += rg(tx + k1 + px(14), ty + px(48), `${store.project.kringen.length} kringen · ${store.project.componenten.filter((c) => def(c.type).kringtype !== 'bouw').length} punten`, 9.5, false, '#6b7280');
+    s += rg(tx + k2 + px(8), ty + px(16), 'Situatieschema', 10.5, true, '#111827');
+    s += rg(tx + k2 + px(8), ty + px(33), escape(niveau ? niveau.naam : ''), 10.5, false, '#111827');
+    s += rg(tx + k2 + px(8), ty + px(48), new Date().toLocaleDateString('nl-BE'), 9.5, false, '#6b7280');
+  }
   s += '</svg>';
   return s;
 }
@@ -149,9 +176,10 @@ export function importeerOnderlaag(bestand, maxPx = 1800) {
         const data = c.toDataURL('image/jpeg', 0.82);
         const breedte = 10;                                  // standaard 10 m breed
         const hoogte = +(breedte * (c.height / c.width)).toFixed(3);
-        store.commit('grondplan geïmporteerd', (p) => {
-          const bestaand = p.plan.onderlaag || {};
-          p.plan.onderlaag = {
+        store.commit('grondplan geïmporteerd', () => {
+          const niveau = store.niveau;
+          const bestaand = niveau.onderlaag || {};
+          niveau.onderlaag = {
             data,
             x: bestaand.x ?? 0,
             y: bestaand.y ?? 0,
@@ -163,7 +191,7 @@ export function importeerOnderlaag(bestand, maxPx = 1800) {
             naam: bestand.name || 'grondplan',
           };
         });
-        klaar(store.project.plan.onderlaag);
+        klaar(store.niveau.onderlaag);
       };
       img.onerror = () => fout(new Error('De afbeelding kon niet gelezen worden.'));
       img.src = String(lezer.result);
@@ -266,13 +294,23 @@ export function drukAf(canvas) {
   const p = store.project;
   const vlak = document.getElementById('print-vlak');
   const datum = new Date().toLocaleDateString('nl-BE');
-  vlak.innerHTML = `
-    <div class="print-blad">
-      <h1>${escape(p.naam || 'Elektrisch dossier')}</h1>
-      <p class="print-meta">${[p.klant, p.adres].filter(Boolean).map(escape).join(' · ')} ${p.klant || p.adres ? '·' : ''} ${datum}</p>
-      <h2>Situatieschema</h2>
+  const bewaardNiveau = store.ui.niveauId;
+
+  // één blad per verdieping
+  let bladen = '';
+  p.plan.niveaus.forEach((niveau, i) => {
+    store.ui.niveauId = niveau.id;
+    bladen += `<div class="print-blad">
+      ${i === 0 ? `<h1>${escape(p.naam || 'Elektrisch dossier')}</h1>
+        <p class="print-meta">${[p.klant, p.adres].filter(Boolean).map(escape).join(' · ')} ${p.klant || p.adres ? '·' : ''} ${datum}</p>` : ''}
+      <h2>Situatieschema — ${escape(niveau.naam)}</h2>
       <div class="print-plan">${planSVG(canvas, { pxPerMeter: 70, titel: false })}</div>
-    </div>
+    </div>`;
+  });
+  store.ui.niveauId = bewaardNiveau;
+
+  vlak.innerHTML = `
+    ${bladen}
     <div class="print-blad">
       <h2>Verdeelbord</h2>
       <div class="print-bord">${bordSVGBestand(p)}</div>
