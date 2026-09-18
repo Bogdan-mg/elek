@@ -26,6 +26,7 @@ export function maakKring(project, opties = {}) {
     amp: opties.amp ?? sjabloon.amp,
     mm2: opties.mm2 ?? sjabloon.mm2,
     curve: opties.curve || 'C',
+    beveiliging: opties.beveiliging || 'automaat',
     differentieelId: opties.differentieelId || (project.differentiëlen[0] && project.differentiëlen[0].id) || null,
     kleur: opties.kleur || volgendeKringKleur(project),
     kortsluit: opties.kortsluit ?? (project.net && project.net.kortsluit) ?? 3000,

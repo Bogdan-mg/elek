@@ -321,7 +321,8 @@ export class PlanCanvas {
       s += `<circle cx="0" cy="0" r="${hit}" fill="none" stroke="var(--geen-kring)" stroke-width="${lijn}" ` +
         `stroke-dasharray="${lijn * 3} ${lijn * 3}"/>`;
     }
-    s += `<g transform="scale(${schaal})" fill="none" stroke="${kleur}" stroke-width="${(lijn / schaal) * 1.15}">${symbool(c.type, -(c.rot || 0))}</g>`;
+    s += `<g transform="scale(${schaal})" fill="none" stroke="${kleur}" stroke-width="${(lijn / schaal) * 1.15}">` +
+      `${symbool(c.type, -(c.rot || 0), c.eig || null)}</g>`;
     if (!voorExport) s += `<circle cx="0" cy="0" r="${hit}" fill="transparent" class="hit"/>`;
     s += '</g>';
 
@@ -582,6 +583,7 @@ export class PlanCanvas {
         watt: d.watt ?? null,
         breedte: d.breedte ?? null,
         diepte: d.diepte ?? null,
+        eig: {},
         opmerking: '',
       };
       p.componenten.push(c);

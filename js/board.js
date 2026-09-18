@@ -33,6 +33,12 @@ const LIJN = 'var(--symbool)';
  * Bouwstenen
  * ------------------------------------------------------------------ */
 
+/** Smeltveiligheid (AREI D): rechthoekje op de leiding. */
+function smeltveiligheid(x, y, kleur = LIJN) {
+  return `<rect x="${x - 7}" y="${y - 12}" width="14" height="24" fill="var(--sym-fill)" stroke="${kleur}" stroke-width="1.8"/>` +
+    `<line x1="${x}" y1="${y - 12}" x2="${x}" y2="${y + 12}" stroke="${kleur}" stroke-width="1.4"/>`;
+}
+
 /** Automaat of differentieel: hefboom op de leiding (AREI D). */
 function hefboom(x, y, kleur = LIJN, dik = 2) {
   return `<path d="M ${x} ${y + 9} q -1 -12 -11 -20" fill="none" stroke="${kleur}" stroke-width="${dik}" stroke-linecap="round"/>`;
@@ -250,8 +256,8 @@ export function bouwBordSVG(project = store.project, { blad = 1, bladen: totaalB
       // takleiding van de rail naar boven
       s += `<line x1="${x}" y1="${railY}" x2="${x}" y2="${top}" stroke="${LIJN}" stroke-width="1.6"/>`;
 
-      // automaat met kringletter, kortsluitvermogen en aanduiding
-      s += hefboom(x, railY - 16, LIJN, 2);
+      // beveiliging met kringletter, kortsluitvermogen en aanduiding
+      s += (k.beveiliging === 'smelt' ? smeltveiligheid(x, railY - 24) : hefboom(x, railY - 16, LIJN, 2));
       const letter = indeling.kringLetter.get(k.id) || String(k.nummer);
       const kleurKring = store.ui.kleurPerKring ? k.kleur : LIJN;
       if (store.ui.kleurPerKring) {
@@ -264,7 +270,10 @@ export function bouwBordSVG(project = store.project, { blad = 1, bladen: totaalB
       }
       void kleurKring;
       s += kortsluitvak(x + 6, railY - 24, k.kortsluit || 3000);
-      s += gedraaid(x + 42, railY - 6, `${polen(k, fasen)} - ${k.curve || 'C'} ${k.amp}A`, { grootte: 9.5 });
+      const aanduiding = k.beveiliging === 'smelt'
+        ? `${polen(k, fasen)} - gG ${k.amp}A`
+        : `${polen(k, fasen)} - ${k.curve || 'C'} ${k.amp}A`;
+      s += gedraaid(x + 42, railY - 6, aanduiding, { grootte: 9.5 });
 
       // leiding: twee wandmerken en de kabelaanduiding
       s += buisMerk(x, railY - 62);
@@ -279,7 +288,7 @@ export function bouwBordSVG(project = store.project, { blad = 1, bladen: totaalB
         s += `<line x1="${x}" y1="${ry}" x2="${eindeX}" y2="${ry}" stroke="${LIJN}" stroke-width="1.4"/>`;
         s += `<text x="${x - 9}" y="${ry + 3}" text-anchor="end" font-size="9.5" fill="var(--tekst)">${letter}${ri + 1}</text>`;
         zichtbaar.forEach((c, ci) => {
-          s += symboolOpLeiding(c.type, x + 26 + ci * SYM_STAP, ry, 0.26, LIJN, 6);
+          s += symboolOpLeiding(c.type, x + 26 + ci * SYM_STAP, ry, 0.26, LIJN, 6, c.eig || null);
         });
         if (rij.length > zichtbaar.length) {
           s += `<text x="${eindeX + 4}" y="${ry + 3}" font-size="9" fill="var(--tekst-zacht)">+${rij.length - zichtbaar.length}</text>`;
@@ -377,7 +386,7 @@ export function bouwBordTabel(project = store.project) {
         for (const { comp, aantal } of samengevat.values()) {
           const d = def(comp.type);
           const code = indeling.puntcode.get(comp.id);
-          h += `<li><span class="mini-sym"><svg viewBox="-56 -56 112 112" width="18" height="18" fill="none" stroke="currentColor" stroke-width="7">${symbool(comp.type)}</svg></span>` +
+          h += `<li><span class="mini-sym"><svg viewBox="-56 -56 112 112" width="18" height="18" fill="none" stroke="currentColor" stroke-width="7">${symbool(comp.type, 0, comp.eig || null)}</svg></span>` +
             `${code ? `<b class="puntcode">${code}</b> ` : ''}${aantal > 1 ? aantal + '× ' : ''}${escape(d.naam)}` +
             `${comp.label ? ' — ' + escape(comp.label) : ''}</li>`;
         }

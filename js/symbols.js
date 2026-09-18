@@ -21,6 +21,26 @@ function opschrift(tekst, fs, tegenRot = 0, x = 0, y = 1) {
  * met een steel naar de muur. Meerdere dozen worden als meerdere bogen
  * op dezelfde steel getekend.
  */
+function contactdoosFam(e = {}) {
+  let extra = '';
+  if (e.geschakeld) {
+    extra += `<line x1="4" y1="18" x2="30" y2="-18" ${A}/><line x1="30" y1="-18" x2="46" y2="-22" ${A}/>`;
+    if ((Number(e.schakelaarPolen) || 2) > 1) extra += `<line x1="20" y1="-16" x2="32" y2="-8" ${A}/>`;
+  }
+  if (e.transformator) extra += `<circle cx="0" cy="-8" r="22" fill="none" ${A}/>`;
+  if (e.fasen === 3 || e.fasen === '3') extra += opschrift('3F', 16, e.tegenRot || 0, 40, -14);
+  if (e.tekst) extra += opschrift(String(e.tekst), 16, e.tegenRot || 0, 42, -30);
+  const basis = contactdoos({
+    aantal: Number(e.aantal) || 1,
+    aarding: e.aarding !== false,
+    kind: !!e.kinderbescherming,
+    extra,
+  });
+  return e.vloer
+    ? `<rect x="-42" y="-40" width="84" height="84" fill="var(--sym-fill)" ${A}/>` + basis
+    : basis;
+}
+
 function contactdoos({ aantal = 1, aarding = true, kind = false, gevuld = false, extra = '' } = {}) {
   const r = aantal > 1 ? 21 : 26;
   const stap = r + 4;
@@ -44,8 +64,30 @@ function contactdoos({ aantal = 1, aarding = true, kind = false, gevuld = false,
 
 /**
  * Schakelaar (AREI E): open cirkeltje met hefboom. Het aantal polen wordt
- * met korte dwarsstreepjes op de hefboom aangegeven.
+ * met korte dwarsstreepjes op de hefboom aangegeven. De eigenschappen
+ * (wissel, kruis, dimmer, trek, verklikkerlamp …) bouwen het symbool op,
+ * zoals in Trikker.
  */
+function schakelaarFam(e = {}) {
+  const polen = Number(e.polen) || 1;
+  const hefbomen = e.kruis ? [[1, 1], [-1, 1], [1, -0.62], [-1, -0.62]]
+    : e.wissel ? [[1, 1], [-1, -0.62]]
+    : e.dubbel ? [[1, 1], [-1, 1]]
+    : [[1, 1]];
+  const haak = e.haak ?? (polen > 1 || !!e.wissel || !!e.kruis || !!e.trek || !!e.tijd);
+  let extra = '';
+  if (e.dimmer) extra += `<path d="M 22 -16 L 46 -24 L 40 -4 Z" fill="var(--sym-fill)" ${A}/>`;
+  if (e.trek) extra += `<path d="M 30 -30 L 30 -8 M 26 -14 L 30 -6 L 34 -14" fill="none" ${A}/>`;
+  if (e.rolluik) extra += `<path d="M 46 -14 L 46 -30 M 42 -26 L 46 -32 L 50 -26" fill="none" ${A}/>` +
+    `<path d="M 58 -30 L 58 -14 M 54 -18 L 58 -12 L 62 -18" fill="none" ${A}/>`;
+  if (e.tijd) extra += opschrift('t', 18, e.tegenRot || 0, 40, -28);
+  if (e.signalisatie) {
+    extra += `<line x1="-11" y1="16" x2="-30" y2="16" ${A}/><circle cx="-41" cy="16" r="11" fill="var(--sym-fill)" ${A}/>` +
+      `<line x1="-49" y1="8" x2="-33" y2="24" ${A}/><line x1="-33" y1="8" x2="-49" y2="24" ${A}/>`;
+  }
+  return schakelaar({ polen, haak, hefbomen, extra, kern: e.verklikker ? 'kruis' : 'open' });
+}
+
 function schakelaar({ polen = 1, haak = true, hefbomen = [[1, 1]], extra = '', kern = 'open' } = {}) {
   const cx = 0, cy = 16, r = 11;
   let s = '';
@@ -86,6 +128,24 @@ function toestel(inhoud = '', { w = 32, h = 28, lijn = true } = {}) {
  * Lichtpunt (AREI G): een kruis, zoals het op een situatieschema en een
  * eendraadschema getekend wordt. Met `cirkel` erbij wordt het een projector.
  */
+function verlichtingFam(e = {}) {
+  if (e.tl) {
+    const n = Number(e.tl) || 1;
+    let s2 = `<line x1="-44" y1="0" x2="44" y2="0" ${A}/><line x1="-44" y1="-13" x2="-44" y2="13" ${A}/>` +
+      `<line x1="44" y1="-13" x2="44" y2="13" ${A}/>`;
+    if (n > 1) s2 += `<line x1="-6" y1="14" x2="10" y2="-14" ${A}/>` + opschrift(String(n), 18, e.tegenRot || 0, 22, -20);
+    return s2;
+  }
+  let extra = '';
+  if (e.wand) extra += `<line x1="-34" y1="34" x2="34" y2="34" ${A}/>`;
+  if (e.projector) extra += `<path d="M -32 -24 A 36 36 0 0 0 -32 24" fill="none" ${A}/>`;
+  if (e.schakelaar) extra += `<line x1="26" y1="-26" x2="40" y2="-14" ${A}/>`;
+  if (e.nood) extra += `<circle cx="0" cy="0" r="9" fill="currentColor" stroke="none"/>`;
+  let s3 = lichtpunt({ r: e.wand ? 21 : e.projector ? 19 : 26, cirkel: !!e.projector, extra });
+  if (e.autonoom) s3 = `<rect x="-38" y="-38" width="76" height="76" fill="var(--sym-fill)" ${A}/>` + s3;
+  return s3;
+}
+
 function lichtpunt({ r = 26, cirkel = false, extra = '' } = {}) {
   const d = cirkel ? r * 0.7 : r;
   let s = '';
@@ -128,6 +188,21 @@ const SNEEUW = (cx, cy, r) => {
 /* ------------------------------------------------------------------ *
  * Symbolen
  * ------------------------------------------------------------------ */
+function drukknopFam(e = {}) {
+  let s4 = `<circle cx="0" cy="8" r="24" fill="var(--sym-fill)" ${A}/>`;
+  if (e.verklikker) {
+    s4 += `<circle cx="0" cy="8" r="11" fill="none" ${A}/>` +
+      `<line x1="-8" y1="0" x2="8" y2="16" ${A}/><line x1="8" y1="0" x2="-8" y2="16" ${A}/>`;
+  } else {
+    s4 += `<circle cx="0" cy="8" r="10" fill="none" ${A}/>`;
+  }
+  if (e.afgeschermd) s4 += `<path d="M 26 -12 L 34 -12 L 34 28 L 26 28" fill="none" ${A}/>`;
+  if (e.dimmer) s4 += `<path d="M 26 -6 L 46 -14 L 42 4 Z" fill="var(--sym-fill)" ${A}/>`;
+  if (e.rolluik) s4 += `<path d="M 34 -20 L 34 -6 M 30 -16 L 34 -22 L 38 -16" fill="none" ${A}/>`;
+  if (e.knoppen > 1) s4 += opschrift(String(e.knoppen), 16, e.tegenRot || 0, 34, 24);
+  return s4 + `<line x1="0" y1="32" x2="0" y2="46" ${A}/>`;
+}
+
 export const SYMBOLEN = {
   // --- G. Verlichting ---------------------------------------------
   lichtpunt: () => lichtpunt(),
@@ -328,6 +403,129 @@ export const SYMBOLEN = {
 };
 
 /* ------------------------------------------------------------------ *
+ * Families met eigenschappen
+ * Zoals in Trikker is een symbool een basissymbool plus eigenschappen.
+ * Elk bestaand type verwijst naar zijn familie met de juiste voorinstelling.
+ * ------------------------------------------------------------------ */
+const FAMILIES = {
+  verlichting: verlichtingFam,
+  schakelaar: schakelaarFam,
+  drukknop: drukknopFam,
+  contactdoos: contactdoosFam,
+};
+
+export const FAMILIE = {
+  // verlichting
+  lichtpunt: { f: 'verlichting', v: {} },
+  wandlicht: { f: 'verlichting', v: { wand: true } },
+  spot: { f: 'verlichting', v: { projector: true } },
+  tl: { f: 'verlichting', v: { tl: 1 } },
+  tl3: { f: 'verlichting', v: { tl: 3 } },
+  buitenlicht: { f: 'verlichting', v: { halfwaterdicht: true } },
+  noodlicht: { f: 'verlichting', v: { nood: true } },
+  noodlichtAutonoom: { f: 'verlichting', v: { nood: true, autonoom: true } },
+  lichtpuntSchakelaar: { f: 'verlichting', v: { schakelaar: true } },
+  // schakelaars
+  schak1: { f: 'schakelaar', v: {} },
+  schak2: { f: 'schakelaar', v: { dubbel: true } },
+  schak2p: { f: 'schakelaar', v: { polen: 2 } },
+  schak3p: { f: 'schakelaar', v: { polen: 3 } },
+  wissel: { f: 'schakelaar', v: { wissel: true } },
+  wissel2p: { f: 'schakelaar', v: { wissel: true, polen: 2 } },
+  kruis: { f: 'schakelaar', v: { kruis: true } },
+  dimmer: { f: 'schakelaar', v: { dimmer: true } },
+  trekschak: { f: 'schakelaar', v: { trek: true } },
+  schakVerklikker: { f: 'schakelaar', v: { verklikker: true } },
+  schakSignalisatie: { f: 'schakelaar', v: { signalisatie: true } },
+  // drukknoppen
+  drukknop: { f: 'drukknop', v: {} },
+  drukknopLamp: { f: 'drukknop', v: { verklikker: true } },
+  // contactdozen
+  sc1: { f: 'contactdoos', v: { aantal: 1 } },
+  sc2: { f: 'contactdoos', v: { aantal: 2 } },
+  sc3: { f: 'contactdoos', v: { aantal: 3 } },
+  sckind: { f: 'contactdoos', v: { kinderbescherming: true } },
+  scwd: { f: 'contactdoos', v: { halfwaterdicht: true } },
+  scbuiten: { f: 'contactdoos', v: { halfwaterdicht: true } },
+  scvloer: { f: 'contactdoos', v: { vloer: true } },
+  scgeschakeld: { f: 'contactdoos', v: { geschakeld: true, schakelaarPolen: 2 } },
+  scwerkblad: { f: 'contactdoos', v: { aantal: 2 } },
+  sckracht: { f: 'contactdoos', v: { fasen: 3 } },
+  scscheer: { f: 'contactdoos', v: { transformator: true, aarding: false } },
+};
+
+/**
+ * Welke eigenschappen een familie kent, voor het eigenschappenpaneel.
+ * type: 'vink' (aan/uit), 'getal' of 'keuze'.
+ */
+export const EIG_SPEC = {
+  verlichting: [
+    { key: 'wand', naam: 'Wandlichtpunt', type: 'vink' },
+    { key: 'projector', naam: 'Projector / spot', type: 'vink' },
+    { key: 'nood', naam: 'Veiligheidsverlichting', type: 'vink' },
+    { key: 'autonoom', naam: 'Autonoom toestel', type: 'vink' },
+    { key: 'schakelaar', naam: 'Ingebouwde schakelaar', type: 'vink' },
+    { key: 'tl', naam: 'Aantal TL-buizen', type: 'getal', min: 0, max: 8 },
+  ],
+  schakelaar: [
+    { key: 'polen', naam: 'Aantal polen', type: 'keuze', opties: [1, 2, 3, 4] },
+    { key: 'wissel', naam: 'Wisselschakelaar', type: 'vink' },
+    { key: 'kruis', naam: 'Kruisschakelaar', type: 'vink' },
+    { key: 'dubbel', naam: 'Dubbele aansteking', type: 'vink' },
+    { key: 'dimmer', naam: 'Dimmer', type: 'vink' },
+    { key: 'trek', naam: 'Trekschakelaar', type: 'vink' },
+    { key: 'tijd', naam: 'Vertraagde opening (t)', type: 'vink' },
+    { key: 'verklikker', naam: 'Verklikkerlamp', type: 'vink' },
+    { key: 'signalisatie', naam: 'Signalisatielamp', type: 'vink' },
+    { key: 'rolluik', naam: 'Rolluikschakelaar', type: 'vink' },
+  ],
+  drukknop: [
+    { key: 'verklikker', naam: 'Verklikkerlamp', type: 'vink' },
+    { key: 'afgeschermd', naam: 'Afgeschermde toegang', type: 'vink' },
+    { key: 'dimmer', naam: 'Dimmer', type: 'vink' },
+    { key: 'rolluik', naam: 'Rolluikdrukknop', type: 'vink' },
+    { key: 'knoppen', naam: 'Aantal knoppen', type: 'getal', min: 1, max: 8 },
+  ],
+  contactdoos: [
+    { key: 'aantal', naam: 'Aantal contactdozen', type: 'getal', min: 1, max: 6 },
+    { key: 'aarding', naam: 'Beschermingsgeleider', type: 'vink', standaard: true },
+    { key: 'kinderbescherming', naam: 'Kinderbescherming', type: 'vink' },
+    { key: 'geschakeld', naam: 'Ingebouwde schakelaar', type: 'vink' },
+    { key: 'transformator', naam: 'Beschermingstransformator', type: 'vink' },
+    { key: 'vloer', naam: 'Vloercontactdoos', type: 'vink' },
+    { key: 'fasen', naam: 'Aantal fasen', type: 'keuze', opties: [1, 3] },
+    { key: 'tekst', naam: 'Opschrift (bv. 32A)', type: 'tekst' },
+  ],
+};
+
+/** Eigenschappen die bij elk symbool horen. */
+export const EIG_ALGEMEEN = [
+  { key: 'halfwaterdicht', naam: 'Half waterdicht (h)', type: 'vink' },
+  { key: 'inBord', naam: 'In een verdeelbord', type: 'vink' },
+  { key: 'aantal2', naam: 'Aantal op deze plaats (×n)', type: 'getal', min: 1, max: 99 },
+];
+
+/** Welke eigenschappen gelden voor een type? */
+export function familieVan(type) {
+  return FAMILIE[type] ? FAMILIE[type].f : null;
+}
+
+/** Voorinstelling van een type, samengevoegd met de eigen eigenschappen. */
+export function eigenschappenVan(type, eig = {}) {
+  const basis = FAMILIE[type] ? FAMILIE[type].v : {};
+  return { ...basis, ...eig };
+}
+
+/** Markeringen die bij elk symbool kunnen staan: aantal, h, in een bord. */
+function overlays(e, tegenRot) {
+  let s = '';
+  if (e.halfwaterdicht) s += opschrift('h', 20, tegenRot, 42, -34);
+  if (Number(e.aantal2) > 1) s += opschrift(`×${Number(e.aantal2)}`, 19, tegenRot, -40, -34);
+  if (e.inBord) s += `<rect x="-52" y="-52" width="104" height="104" fill="none" ${A} stroke-dasharray="8 6"/>`;
+  return s;
+}
+
+/* ------------------------------------------------------------------ *
  * Aansluitpunt van een symbool
  * Op een eendraadschema hangt een symbool aan de leiding. Dit zegt waar
  * de leiding aankomt en hoe het symbool dan gedraaid staat.
@@ -354,27 +552,33 @@ export function aansluitpunt(type) {
  * Plaatst een symbool met zijn aansluitpunt op (px, py), zoals op een
  * eendraadschema waar de toestellen aan de horizontale aftakking hangen.
  */
-export function symboolOpLeiding(type, px, py, schaal = 0.27, kleur = 'currentColor', dik = 5.5) {
+export function symboolOpLeiding(type, px, py, schaal = 0.27, kleur = 'currentColor', dik = 5.5, eig = null) {
   const ap = aansluitpunt(type);
   const hoek = (ap.rot * Math.PI) / 180;
   const dx = (ap.x * Math.cos(hoek) - ap.y * Math.sin(hoek)) * schaal;
   const dy = (ap.x * Math.sin(hoek) + ap.y * Math.cos(hoek)) * schaal;
   return `<g transform="translate(${(px - dx).toFixed(1)} ${(py - dy).toFixed(1)}) rotate(${ap.rot}) scale(${schaal})" ` +
     `fill="none" stroke="${kleur}" stroke-width="${dik}" stroke-linecap="round" stroke-linejoin="round">` +
-    `${symbool(type, -ap.rot)}</g>`;
+    `${symbool(type, -ap.rot, eig)}</g>`;
 }
 
 /**
  * SVG-inhoud van een symbool binnen het vak -50..50.
  * tegenRot draait opschriften terug zodat ze leesbaar blijven.
  */
-export function symbool(type, tegenRot = 0) {
+export function symbool(type, tegenRot = 0, eig = null) {
+  const fam = FAMILIE[type];
+  if (fam) {
+    const e = { ...fam.v, ...(eig || {}), tegenRot };
+    return FAMILIES[fam.f](e) + overlays(e, tegenRot);
+  }
   const fn = SYMBOLEN[type] || SYMBOLEN.aansluitdoos;
-  return fn(tegenRot);
+  return fn(tegenRot) + (eig ? overlays({ ...eig, tegenRot }, tegenRot) : '');
 }
 
 /** Losstaand symbool voor knoppen, lijsten en de legende. */
-export function symboolIcoon(type, grootte = 28) {
+export function symboolIcoon(type, grootte = 28, eig = null) {
   return `<svg viewBox="-58 -58 116 116" width="${grootte}" height="${grootte}" class="sym-icoon" ` +
-    `fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${symbool(type)}</svg>`;
+    `fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" ` +
+    `aria-hidden="true">${symbool(type, 0, eig)}</svg>`;
 }

@@ -5,8 +5,9 @@ import store from './store.js';
 import {
   CATALOG, GROEPEN, def, ruimteDef, RUIMTETYPES, AMPERES, SECTIES,
   KRINGSJABLOON, minSectieVoor, uid, puntenVan, KORTSLUIT, KABELTYPES,
+  CURVES, BEVEILIGINGEN,
 } from './model.js';
-import { symboolIcoon } from './symbols.js';
+import { symboolIcoon, familieVan, EIG_SPEC, EIG_ALGEMEEN, eigenschappenVan } from './symbols.js';
 import { escape } from './canvas.js';
 import {
   maakKring, verwijderKring, componentenVanKring, puntenInKring,
@@ -213,7 +214,17 @@ function paneelKringen() {
       <span class="kring-nr${ui.kleurPerKring ? '' : ' vlak'}"${ui.kleurPerKring ? ` style="background:${k.kleur}"` : ''}>${letter}</span>
       <span class="kring-info">
         <input class="inline-invoer" value="${escape(k.naam)}" data-actie="kring-naam" data-id="${k.id}">
-        <span class="rij-meta">${k.amp} A · ${k.mm2} mm² · ${comps.length} comp.${max ? ` · <span class="${tevol ? 'fout-tekst' : ''}">${punten}/${max} pt</span>` : ''}</span>
+        <span class="kring-regel">
+          <select class="mini-select" data-actie="kring-amp" data-id="${k.id}" title="Automaat">
+            ${AMPERES.map((a2) => `<option value="${a2}"${k.amp === a2 ? ' selected' : ''}>${a2} A</option>`).join('')}
+            ${AMPERES.includes(k.amp) ? '' : `<option value="${k.amp}" selected>${k.amp} A</option>`}
+          </select>
+          <select class="mini-select" data-actie="kring-mm2" data-id="${k.id}" title="Kabelsectie">
+            ${SECTIES.map((m) => `<option value="${m}"${k.mm2 === m ? ' selected' : ''}>${m} mm²</option>`).join('')}
+            ${SECTIES.includes(k.mm2) ? '' : `<option value="${k.mm2}" selected>${k.mm2} mm²</option>`}
+          </select>
+          <span class="rij-meta">${comps.length} comp.${max ? ` · <span class="${tevol ? 'fout-tekst' : ''}">${punten}/${max} pt</span>` : ''}</span>
+        </span>
       </span>
       <button class="mini toewijs${ui.actieveKring === k.id ? ' aan' : ''}" data-actie="kies-kring" data-id="${k.id}" title="Componenten aan deze kring toewijzen">◎</button>
       <button class="mini gevaar" data-actie="verwijder-kring" data-id="${k.id}" title="Kring verwijderen">×</button></li>`;
@@ -231,6 +242,19 @@ function paneelKringen() {
           <select data-actie="kring-amp" data-id="${actief.id}">${AMPERES.map((a) => `<option value="${a}"${actief.amp === a ? ' selected' : ''}>${a} A</option>`).join('')}</select></label>
         <label class="veld"><span>Kabel</span>
           <select data-actie="kring-mm2" data-id="${actief.id}">${SECTIES.map((m) => `<option value="${m}"${actief.mm2 === m ? ' selected' : ''}>${m} mm²</option>`).join('')}</select></label>
+      </div>
+      <div class="veld-rij">
+        <label class="veld"><span>Beveiliging</span>
+          <select data-actie="kring-beveiliging" data-id="${actief.id}">${BEVEILIGINGEN.map((b) => `<option value="${b.key}"${(actief.beveiliging || 'automaat') === b.key ? ' selected' : ''}>${b.naam}</option>`).join('')}</select></label>
+        <label class="veld"><span>Curve</span>
+          <select data-actie="kring-curve" data-id="${actief.id}"${(actief.beveiliging || 'automaat') === 'smelt' ? ' disabled' : ''}>
+            ${CURVES.map((cv) => `<option value="${cv}"${(actief.curve || 'C') === cv ? ' selected' : ''}>${cv}</option>`).join('')}</select></label>
+      </div>
+      <div class="veld-rij">
+        <label class="veld"><span>Andere stroomsterkte (A)</span>
+          <input type="number" min="0.5" step="0.5" value="${actief.amp}" data-actie="kring-amp-vrij" data-id="${actief.id}"></label>
+        <label class="veld"><span>Andere sectie (mm²)</span>
+          <input type="number" min="0.5" step="0.5" value="${actief.mm2}" data-actie="kring-mm2-vrij" data-id="${actief.id}"></label>
       </div>
       <div class="veld-rij">
         <label class="veld"><span>Kabeltype</span>
@@ -321,6 +345,34 @@ function paneelComponent(c) {
       <select data-actie="comp-type">${CATALOG.filter((x) => (x.kringtype === 'bouw') === (d.kringtype === 'bouw'))
         .map((x) => `<option value="${x.key}"${x.key === c.type ? ' selected' : ''}>${x.groep} — ${x.naam}</option>`).join('')}</select></label>
     <label class="veld"><span>Opmerking</span><textarea rows="2" data-actie="comp-opmerking">${escape(c.opmerking || '')}</textarea></label>`;
+  // Eigenschappen van het symbool, zoals in Trikker
+  const fam = familieVan(c.type);
+  const spec = [...(fam ? EIG_SPEC[fam] : []), ...EIG_ALGEMEEN];
+  if (spec.length) {
+    const e = eigenschappenVan(c.type, c.eig || {});
+    h += `<div class="lijst-kop"><h3>Eigenschappen</h3></div><div class="eigenschappen">`;
+    for (const sp of spec) {
+      const waarde = e[sp.key];
+      if (sp.type === 'vink') {
+        h += `<label class="schakel"><input type="checkbox" data-actie="eig" data-key="${sp.key}" data-soort="vink"` +
+          `${waarde ? ' checked' : ''}> ${sp.naam}</label>`;
+      } else if (sp.type === 'getal') {
+        h += `<label class="veld klein"><span>${sp.naam}</span>
+          <input type="number" min="${sp.min ?? 0}" max="${sp.max ?? 99}" value="${waarde ?? ''}" ` +
+          `data-actie="eig" data-key="${sp.key}" data-soort="getal"></label>`;
+      } else if (sp.type === 'keuze') {
+        h += `<label class="veld klein"><span>${sp.naam}</span>
+          <select data-actie="eig" data-key="${sp.key}" data-soort="getal">
+            ${sp.opties.map((o) => `<option value="${o}"${Number(waarde || sp.opties[0]) === o ? ' selected' : ''}>${o}</option>`).join('')}
+          </select></label>`;
+      } else {
+        h += `<label class="veld klein"><span>${sp.naam}</span>
+          <input type="text" value="${escape(waarde || '')}" data-actie="eig" data-key="${sp.key}" data-soort="tekst"></label>`;
+      }
+    }
+    h += `</div><p class="voetnoot">Het symbool wordt opgebouwd uit deze eigenschappen, zoals in Trikker.</p>`;
+  }
+
   if (verbindingen.length) {
     h += `<div class="lijst-kop"><h3>Bediening</h3></div><ul class="lijst compact">`;
     for (const v of verbindingen) {
@@ -497,7 +549,7 @@ function klik(e) {
       if (store.ui.actieveKring === id) store.setUI({ actieveKring: null, tool: 'select' });
       break;
     case 'kies-kring': {
-      if (e.target.closest('select, button[data-actie="verwijder-kring"]')) return;
+      if (e.target.closest('select, input, button[data-actie="verwijder-kring"]')) return;
       const zelfde = store.ui.actieveKring === id;
       store.setUI({ actieveKring: zelfde ? null : id, tool: zelfde ? 'select' : 'kringverf' });
       break;
@@ -618,10 +670,30 @@ function invoer(e) {
   }
 }
 
+/** Zet een eigenschap op alle geselecteerde componenten. */
+function zetEigenschap(veld) {
+  const comps = eersteSelectieComponent();
+  if (!comps.length) return;
+  const key = veld.dataset.key;
+  const soort = veld.dataset.soort;
+  let waarde;
+  if (soort === 'vink') waarde = veld.checked;
+  else if (soort === 'getal') waarde = veld.value === '' ? undefined : Number(veld.value);
+  else waarde = veld.value;
+  store.commit('eigenschap gewijzigd', () => {
+    for (const c of comps) {
+      c.eig = { ...(c.eig || {}) };
+      if (waarde === undefined || waarde === false || waarde === '') delete c.eig[key];
+      else c.eig[key] = waarde;
+    }
+  });
+}
+
 function wijzig(e) {
   const veld = e.target.closest('[data-actie]');
   if (!veld) return;
   const actie = veld.dataset.actie;
+  if (actie === 'eig') { zetEigenschap(veld); return; }
   const waarde = veld.value;
   const id = veld.dataset.id;
   const comps = eersteSelectieComponent();
@@ -745,6 +817,18 @@ function wijzig(e) {
         const sj = KRINGSJABLOON[waarde];
         if (sj) { k.amp = sj.amp; k.mm2 = sj.mm2; }
       });
+      break;
+    case 'kring-amp-vrij':
+      store.commit('automaat gewijzigd', () => { const k = store.kring(id); if (k && Number(waarde) > 0) k.amp = Number(waarde); });
+      break;
+    case 'kring-mm2-vrij':
+      store.commit('sectie gewijzigd', () => { const k = store.kring(id); if (k && Number(waarde) > 0) k.mm2 = Number(waarde); });
+      break;
+    case 'kring-curve':
+      store.commit('curve gewijzigd', () => { const k = store.kring(id); if (k) k.curve = waarde; });
+      break;
+    case 'kring-beveiliging':
+      store.commit('beveiliging gewijzigd', () => { const k = store.kring(id); if (k) k.beveiliging = waarde; });
       break;
     case 'kring-kabel':
       store.commit('kabeltype gewijzigd', () => { const k = store.kring(id); if (k) k.kabel = waarde; });

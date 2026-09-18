@@ -109,6 +109,10 @@ eendraadschema gelden voor de hele installatie.
   een differentieel van 30 mA voor vochtige ruimtes.
 * Zelf toewijzen: kies een kring (knop ◎) en klik of sleep over de componenten
   op het plan. Elke kring heeft een eigen kleur en nummer op het schema.
+* **Zekeringen** stel je rechtstreeks in de kringlijst in: stroomsterkte van
+  1 tot 125 A en secties van 1 tot 50 mm², of een eigen waarde via het
+  detailvenster. Kies tussen een **automaat** (curve B, C of D) en een
+  **smeltveiligheid** (`gG`); het eendraadschema tekent het juiste symbool.
 * Per kring stel je automaat (A), kabelsectie (mm²), curve, kabeltype (VOB,
   XVB …), kortsluitvermogen en differentieel in; die komen op het
   eendraadschema te staan zoals `2P - C 16A`, `VOB 3G2,5` en het kadertje met
@@ -161,6 +165,26 @@ symbool, de puntcode en de kringletter krijgen dan de kleur van hun kring) en
 *Ruimtes inkleuren*. In stap 3 licht de kring waaraan je werkt op, en
 componenten zonder kring krijgen een stippelring — ook zonder kleur zie je dus
 waar je nog moet toewijzen.
+
+### Eigenschappen per symbool
+Zoals in Trikker is een symbool een **basissymbool plus eigenschappen**. Selecteer
+een component en je krijgt rechts de eigenschappen van zijn familie:
+
+* **schakelaar**: aantal polen, wissel, kruis, dubbele aansteking, dimmer,
+  trekschakelaar, vertraagde opening (`t`), verklikkerlamp, signalisatielamp,
+  rolluik;
+* **contactdoos**: aantal dozen, beschermingsgeleider, kinderbescherming,
+  ingebouwde schakelaar, beschermingstransformator, vloercontactdoos, aantal
+  fasen, vrij opschrift (bv. `32A`);
+* **verlichting**: wand, projector, veiligheidsverlichting, autonoom,
+  ingebouwde schakelaar, aantal TL-buizen;
+* **drukknop**: verklikkerlamp, afgeschermde toegang, dimmer, rolluik, aantal
+  knoppen.
+
+Daarnaast heeft elk symbool *half waterdicht* (`h`), *in een verdeelbord* en
+*aantal op deze plaats* (`×n`). De tekening wordt uit die eigenschappen
+opgebouwd, op het situatieschema én op het eendraadschema. De symbolen in het
+palet zijn gewoon voorinstellingen van dezelfde families.
 
 ### Symbolen
 De symbolen volgen **AREI Boek 1, tabel 2.23** (grafische symbolen), dezelfde

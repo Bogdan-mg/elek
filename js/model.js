@@ -142,15 +142,24 @@ export function puntenVan(comp) {
  * Kabel- en beveiligingstabel (AREI, huishoudelijk)
  * ------------------------------------------------------------------ */
 export const KABELTABEL = [
-  { mm2: 1.5, maxAmp: 16 },
-  { mm2: 2.5, maxAmp: 20 },
-  { mm2: 4,   maxAmp: 25 },
-  { mm2: 6,   maxAmp: 32 },
-  { mm2: 10,  maxAmp: 40 },
-  { mm2: 16,  maxAmp: 63 },
+  { mm2: 1,    maxAmp: 10 },
+  { mm2: 1.5,  maxAmp: 16 },
+  { mm2: 2.5,  maxAmp: 20 },
+  { mm2: 4,    maxAmp: 25 },
+  { mm2: 6,    maxAmp: 32 },
+  { mm2: 10,   maxAmp: 40 },
+  { mm2: 16,   maxAmp: 63 },
+  { mm2: 25,   maxAmp: 80 },
+  { mm2: 35,   maxAmp: 100 },
+  { mm2: 50,   maxAmp: 125 },
 ];
 
-export const AMPERES = [2, 6, 10, 13, 16, 20, 25, 32, 40, 50, 63];
+export const AMPERES = [1, 2, 4, 6, 8, 10, 13, 16, 20, 25, 32, 40, 50, 63, 80, 100, 125];
+export const CURVES = ['B', 'C', 'D'];
+export const BEVEILIGINGEN = [
+  { key: 'automaat', naam: 'Automaat' },
+  { key: 'smelt', naam: 'Smeltveiligheid' },
+];
 export const KORTSLUIT = [1500, 3000, 4500, 6000, 10000];
 export const KABELTYPES = ['VOB', 'XVB', 'XGB', 'EXVB', 'H07V-U', 'XVB-F2'];
 export const SECTIES = KABELTABEL.map((k) => k.mm2);
