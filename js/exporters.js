@@ -10,6 +10,7 @@ import { migreer } from './model.js';
 const EXPORT_KLEUREN = {
   '--sym-fill': '#ffffff',
   '--muur': '#111827',
+  '--muur-vulling': '#c9ced6',
   '--symbool': '#111827',
   '--accent': '#2563eb',
   '--geen-kring': '#9ca3af',

@@ -179,9 +179,15 @@ export class PlanCanvas {
     const opp = oppervlakte(r.punten);
     // Naam iets onder het midden: het plafondlichtpunt staat meestal in het midden.
     const naamY = mid.y + Math.min(box.h * 0.22, 0.9);
+    const dikte = r.muurdikte || 0.09;
     let s = `<polygon data-kind="ruimte" data-id="${r.id}" points="${punten}" ` +
       `fill="${r.kleur || d.kleur}" fill-opacity="0.85" stroke="${gesel ? 'var(--accent)' : 'var(--muur)'}" ` +
-      `stroke-width="${gesel ? lijn * 3 : (r.muurdikte || 0.09)}" stroke-linejoin="miter"/>`;
+      `stroke-width="${gesel ? lijn * 3 : dikte}" stroke-linejoin="miter"/>`;
+    if (!gesel && dikte > lijn * 3) {
+      // binnenkant van de muur lichter, zodat de muur als band leest
+      s += `<polygon points="${punten}" fill="none" stroke="var(--muur-vulling)" ` +
+        `stroke-width="${dikte - lijn * 2}" stroke-linejoin="miter" style="pointer-events:none"/>`;
+    }
     if (store.ui.toonAlleMaten && !gesel) {
       for (const [p1, p2] of segmenten(r.punten)) s += this.maatLabel(p1, p2, 'var(--tekst-plan-zacht)');
     }
@@ -301,7 +307,7 @@ export class PlanCanvas {
     s += '</g>';
 
     // Label / kringnummer los van de rotatie
-    const toonKring = (store.ui.stap === 3 || kleurPerKring) && kring;
+    const toonKring = (store.ui.stap === 3 || kleurPerKring || store.ui.toonKringnummers) && kring;
     if ((store.ui.toonLabels || voorExport) && (c.label || toonKring)) {
       const h = Math.max(0.17, 11 / this.view.zoom);
       const tekst = toonKring ? `${kring.nummer}${c.label ? ' · ' + c.label : ''}` : c.label;

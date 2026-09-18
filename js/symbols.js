@@ -82,12 +82,17 @@ function toestel(inhoud = '', { w = 32, h = 28, lijn = true } = {}) {
   return s + inhoud;
 }
 
-/** Lichtpunt (AREI G): cirkel met kruis, zoals op het situatieschema. */
-function lichtpunt({ r = 24, vulling = 'var(--sym-fill)', extra = '' } = {}) {
-  const d = r * 0.72;
-  return `<circle cx="0" cy="0" r="${r}" fill="${vulling}" ${A}/>` +
-    `<line x1="${-d}" y1="${-d}" x2="${d}" y2="${d}" ${A}/>` +
-    `<line x1="${d}" y1="${-d}" x2="${-d}" y2="${d}" ${A}/>` + extra;
+/**
+ * Lichtpunt (AREI G): een kruis, zoals het op een situatieschema en een
+ * eendraadschema getekend wordt. Met `cirkel` erbij wordt het een projector.
+ */
+function lichtpunt({ r = 26, cirkel = false, extra = '' } = {}) {
+  const d = cirkel ? r * 0.7 : r;
+  let s = '';
+  if (cirkel) s += `<circle cx="0" cy="0" r="${r}" fill="var(--sym-fill)" ${A}/>`;
+  s += `<line x1="${-d}" y1="${-d}" x2="${d}" y2="${d}" ${A}/>` +
+    `<line x1="${d}" y1="${-d}" x2="${-d}" y2="${d}" ${A}/>`;
+  return s + extra;
 }
 
 /** Datacontactdoos (AREI F): haakje met steel naar de muur. */
@@ -126,13 +131,13 @@ const SNEEUW = (cx, cy, r) => {
 export const SYMBOLEN = {
   // --- G. Verlichting ---------------------------------------------
   lichtpunt: () => lichtpunt(),
-  wandlicht: () => lichtpunt({ r: 20, extra: `<line x1="-34" y1="34" x2="34" y2="34" ${A}/>` }),
-  spot: () => lichtpunt({ r: 19, extra: `<path d="M -30 -22 A 34 34 0 0 0 -30 22" fill="none" ${A}/>` }),
+  wandlicht: () => lichtpunt({ r: 21, extra: `<line x1="-34" y1="34" x2="34" y2="34" ${A}/>` }),
+  spot: () => lichtpunt({ r: 19, cirkel: true, extra: `<path d="M -32 -24 A 36 36 0 0 0 -32 24" fill="none" ${A}/>` }),
   tl: () => `<line x1="-44" y1="0" x2="44" y2="0" ${A}/><line x1="-44" y1="-13" x2="-44" y2="13" ${A}/>` +
     `<line x1="44" y1="-13" x2="44" y2="13" ${A}/>`,
   tl3: (t) => `<line x1="-44" y1="0" x2="44" y2="0" ${A}/><line x1="-44" y1="-13" x2="-44" y2="13" ${A}/>` +
     `<line x1="44" y1="-13" x2="44" y2="13" ${A}/><line x1="-6" y1="14" x2="10" y2="-14" ${A}/>` + opschrift('3', 18, t, 22, -20),
-  buitenlicht: (t) => lichtpunt({ r: 21 }) + opschrift('h', 20, t, 34, -26),
+  buitenlicht: (t) => lichtpunt({ r: 22 }) + opschrift('h', 20, t, 36, -28),
   noodlicht: () => `<line x1="-26" y1="-26" x2="26" y2="26" ${A}/><line x1="26" y1="-26" x2="-26" y2="26" ${A}/>` +
     `<circle cx="0" cy="0" r="9" fill="currentColor" stroke="none"/>`,
   noodlichtAutonoom: () => `<rect x="-34" y="-34" width="68" height="68" fill="var(--sym-fill)" ${A}/>` +
@@ -321,6 +326,43 @@ export const SYMBOLEN = {
   noodstop: () => `<circle cx="0" cy="0" r="26" fill="var(--sym-fill)" ${A}/>` +
     `<circle cx="0" cy="0" r="13" fill="currentColor" stroke="none"/><line x1="0" y1="26" x2="0" y2="46" ${A}/>`,
 };
+
+/* ------------------------------------------------------------------ *
+ * Aansluitpunt van een symbool
+ * Op een eendraadschema hangt een symbool aan de leiding. Dit zegt waar
+ * de leiding aankomt en hoe het symbool dan gedraaid staat.
+ * ------------------------------------------------------------------ */
+const SCHAKELAARS = new Set([
+  'schak1', 'schak2', 'schak2p', 'schak3p', 'wissel', 'wissel2p', 'kruis',
+  'dimmer', 'trekschak', 'schakVerklikker', 'schakSignalisatie',
+]);
+
+const ZONDER_STEEL = new Set([
+  'lichtpunt', 'wandlicht', 'spot', 'tl', 'tl3', 'buitenlicht', 'noodlicht',
+  'noodlichtAutonoom', 'lichtpuntSchakelaar', 'ledstrip', 'rookmelder', 'alarm',
+  'wifi', 'domotica', 'verdeelbord', 'teller', 'aarding', 'aardingsonderbreker',
+]);
+
+/** Waar de leiding op het symbool aankomt (in het vak -50..50) en de draaiing. */
+export function aansluitpunt(type) {
+  if (SCHAKELAARS.has(type)) return { x: 0, y: 16, rot: 0 };
+  if (ZONDER_STEEL.has(type)) return { x: 0, y: 0, rot: 0 };
+  return { x: 0, y: 46, rot: 90 };      // steel naar de leiding toe
+}
+
+/**
+ * Plaatst een symbool met zijn aansluitpunt op (px, py), zoals op een
+ * eendraadschema waar de toestellen aan de horizontale aftakking hangen.
+ */
+export function symboolOpLeiding(type, px, py, schaal = 0.27, kleur = 'currentColor', dik = 5.5) {
+  const ap = aansluitpunt(type);
+  const hoek = (ap.rot * Math.PI) / 180;
+  const dx = (ap.x * Math.cos(hoek) - ap.y * Math.sin(hoek)) * schaal;
+  const dy = (ap.x * Math.sin(hoek) + ap.y * Math.cos(hoek)) * schaal;
+  return `<g transform="translate(${(px - dx).toFixed(1)} ${(py - dy).toFixed(1)}) rotate(${ap.rot}) scale(${schaal})" ` +
+    `fill="none" stroke="${kleur}" stroke-width="${dik}" stroke-linecap="round" stroke-linejoin="round">` +
+    `${symbool(type, -ap.rot)}</g>`;
+}
 
 /**
  * SVG-inhoud van een symbool binnen het vak -50..50.

@@ -1,66 +1,76 @@
-// Eendraadschema volgens de Belgische praktijk (AREI, tabel 2.23):
-// onderaan de voeding met aardelektrode, kWh-teller en hoofdautomaat,
-// daarboven per differentieel een rail waarop de kringen naar boven
-// vertrekken, met de symbolen van de aangesloten toestellen in de lijn.
+// Eendraadschema in de Belgische opmaak (AREI tabel 2.23), zoals een
+// dossier van Trikker of Tricity: onderaan de hoofdleiding met teller en
+// hoofddifferentieel, daarboven per differentieel een rail, en vanaf die
+// rail vertrekt elke kring naar boven met genummerde aftakkingen waaraan
+// de toestellen hangen.
 
 import store from './store.js';
 import { def, ruimteDef } from './model.js';
 import { componentenVanKring, puntenInKring, vermogenVanKring } from './circuits.js';
-import { symbool } from './symbols.js';
+import { symbool, symboolOpLeiding } from './symbols.js';
 import { escape } from './canvas.js';
 
 /* ------------------------------------------------------------------ *
- * Maatvoering van het blad
+ * Maatvoering
  * ------------------------------------------------------------------ */
-const MARGE = 26;          // rand van het blad
-const HOOFD_X = 78;        // x van de verticale hoofdleiding
-const KOL_X = 210;         // x van de eerste kring
-const KOL = 212;           // breedte per kring
-const STAP = 50;           // afstand tussen twee symbolen in een kring
-const VOET = 128;          // hoogte van de voedingsrij onderaan
-const TITEL = 96;          // hoogte van de titelhoek
-const NAAM_RUIMTE = 132;   // ruimte voor de gedraaide kringnaam
+const MARGE = 24;
+const LINKS = 52;            // linkermarge van een blad
+const RIJ_H = 34;            // hoogte van een genummerde aftakking
+const SYM_STAP = 38;         // afstand tussen twee symbolen op een aftakking
+const KOL_MIN = 128;         // minimale kolombreedte van een kring
+const DIF_RUIMTE = 74;       // ruimte links van de eerste kring van een differentieel
+const VOEDING_B = 250;       // breedte van de voeding op het eerste blad
+const MAX_BREEDTE = 2100;    // daarna begint een nieuw blad
+const NAAM_H = 118;          // ruimte voor de gedraaide kringnaam
+const TAK_BASIS = 132;       // van de rail tot de eerste aftakking
+const DIF_H = 116;           // van de hoofdleiding tot de rail
+const TITEL = 92;
 
 const LIJN = 'var(--symbool)';
 
 /* ------------------------------------------------------------------ *
- * Symbolen van het bord
+ * Bouwstenen
  * ------------------------------------------------------------------ */
 
-/** Automatische schakelaar (AREI D), hefboom naar boven geopend. */
-function automaat(x, y, kleur = LIJN, dik = 2) {
-  return `<circle cx="${x}" cy="${y}" r="3.2" fill="${kleur}"/>` +
-    `<path d="M ${x} ${y} q -11 -11 -9 -24" fill="none" stroke="${kleur}" stroke-width="${dik}" stroke-linecap="round"/>`;
+/** Automaat of differentieel: hefboom op de leiding (AREI D). */
+function hefboom(x, y, kleur = LIJN, dik = 2) {
+  return `<path d="M ${x} ${y + 9} q -1 -12 -11 -20" fill="none" stroke="${kleur}" stroke-width="${dik}" stroke-linecap="round"/>`;
 }
 
-/** Differentieel: automaatsymbool met de ringkern erlangs. */
-function differentieel(x, y, kleur = LIJN) {
-  return automaat(x, y, kleur, 2.2) +
-    `<ellipse cx="${x - 12}" cy="${y - 13}" rx="14" ry="6.5" fill="none" stroke="${kleur}" stroke-width="1.6" ` +
-    `transform="rotate(-34 ${x - 12} ${y - 13})"/>`;
+/** Kortsluitvermogen in een kadertje, zoals op een Belgisch schema. */
+function kortsluitvak(x, y, waarde) {
+  const b = 30, h = 13;
+  return `<rect x="${x}" y="${y - h / 2}" width="${b}" height="${h}" fill="var(--sym-fill)" stroke="${LIJN}" stroke-width="1"/>` +
+    `<text x="${x + b / 2}" y="${y}" text-anchor="middle" dominant-baseline="central" font-size="9" fill="var(--tekst)">${waarde}</text>`;
 }
 
-/** Aardelektrode (AREI D). */
-function aardelektrode(x, y, kleur = LIJN) {
-  return `<line x1="${x - 16}" y1="${y}" x2="${x + 16}" y2="${y}" stroke="${kleur}" stroke-width="2"/>` +
-    `<line x1="${x - 10}" y1="${y + 6}" x2="${x + 10}" y2="${y + 6}" stroke="${kleur}" stroke-width="2"/>` +
-    `<line x1="${x - 4}" y1="${y + 12}" x2="${x + 4}" y2="${y + 12}" stroke="${kleur}" stroke-width="2"/>`;
+/** Aanduiding "leiding in een wand" (AREI C). */
+function buisMerk(x, y) {
+  return `<path d="M ${x - 11} ${y - 7} L ${x - 3} ${y - 7} L ${x - 3} ${y + 7} L ${x - 11} ${y + 7}" ` +
+    `fill="none" stroke="${LIJN}" stroke-width="1.4"/>`;
 }
 
-/** Leidingaanduiding: schuine streep met het aantal geleiders. */
-function leiding(x, y, aantal, kleur = LIJN) {
-  return `<line x1="${x - 8}" y1="${y + 7}" x2="${x + 8}" y2="${y - 7}" stroke="${kleur}" stroke-width="1.6"/>` +
-    `<text x="${x + 10}" y="${y - 5}" font-size="9.5" fill="var(--tekst-zacht)">${aantal}</text>`;
+/** Aardelektrode. */
+function aarde(x, y) {
+  return `<line x1="${x - 15}" y1="${y}" x2="${x + 15}" y2="${y}" stroke="${LIJN}" stroke-width="2"/>` +
+    `<line x1="${x - 9}" y1="${y + 6}" x2="${x + 9}" y2="${y + 6}" stroke="${LIJN}" stroke-width="2"/>` +
+    `<line x1="${x - 4}" y1="${y + 12}" x2="${x + 4}" y2="${y + 12}" stroke="${LIJN}" stroke-width="2"/>`;
 }
 
-/** Kabelaanduiding volgens AREI, bv. XVB 3G2,5. */
+function gedraaid(x, y, tekst, opties = {}) {
+  const { grootte = 10, vet = false, kleur = 'var(--tekst)' } = opties;
+  return `<text x="${x}" y="${y}" font-size="${grootte}" fill="${kleur}"${vet ? ' font-weight="700"' : ''} ` +
+    `transform="rotate(-90 ${x} ${y})" text-anchor="start">${tekst}</text>`;
+}
+
+function kort(tekst, max) {
+  const t = String(tekst || '');
+  return t.length > max ? t.slice(0, max - 1) + '…' : t;
+}
+
 export function kabelTekst(kring, fasen = 1) {
-  const geleiders = fasen === 3 && kring.amp >= 32 ? 5 : 3;
-  return `${kring.kabel || 'XVB'} ${geleiders}G${String(kring.mm2).replace('.', ',')}`;
-}
-
-function geleiders(kring, fasen = 1) {
-  return fasen === 3 && kring.amp >= 32 ? 5 : 3;
+  const n = fasen === 3 && kring.amp >= 32 ? 5 : 3;
+  return `${kring.kabel || 'VOB'} ${n}G${String(kring.mm2).replace('.', ',')}`;
 }
 
 function polen(kring, fasen = 1) {
@@ -68,30 +78,51 @@ function polen(kring, fasen = 1) {
 }
 
 /* ------------------------------------------------------------------ *
- * Hulpjes
+ * Aftakkingen van een kring bepalen
  * ------------------------------------------------------------------ */
 
-/** Groepeert de componenten van een kring per type en opschrift. */
-function groepeer(project, kringId) {
+/**
+ * Verdeelt de componenten van een kring over genummerde aftakkingen:
+ * een schakelaar staat samen met de verlichting die hij bedient, en
+ * verder krijgt elke groep gelijke toestellen een eigen aftakking.
+ */
+function bouwRijen(project, kring) {
+  const comps = componentenVanKring(project, kring.id);
+  const gebruikt = new Set();
+  const rijen = [];
+
+  for (const c of comps) {
+    if (def(c.type).kringtype !== 'bediening' || gebruikt.has(c.id)) continue;
+    const verbonden = project.verbindingen
+      .filter((v) => v.van === c.id || v.naar === c.id)
+      .map((v) => (v.van === c.id ? v.naar : v.van))
+      .map((id) => comps.find((x) => x.id === id))
+      .filter((x) => x && !gebruikt.has(x.id));
+    gebruikt.add(c.id);
+    for (const v of verbonden) gebruikt.add(v.id);
+    rijen.push([c, ...verbonden]);
+  }
+
   const groepen = new Map();
-  for (const c of componentenVanKring(project, kringId)) {
-    const ruimte = c.ruimteId && project.plan.ruimtes.find((r) => r.id === c.ruimteId);
-    const ruimteNaam = ruimte ? (ruimte.naam || ruimteDef(ruimte.type).naam) : '';
-    const sleutel = `${c.type}|${c.label || ''}|${ruimteNaam}`;
-    if (!groepen.has(sleutel)) {
-      groepen.set(sleutel, { type: c.type, label: c.label || '', ruimte: ruimteNaam, aantal: 0 });
-    }
-    groepen.get(sleutel).aantal += 1;
+  for (const c of comps) {
+    if (gebruikt.has(c.id)) continue;
+    const r = c.ruimteId && project.plan.ruimtes.find((x) => x.id === c.ruimteId);
+    const ruimte = r ? (r.naam || ruimteDef(r.type).naam) : '';
+    const sleutel = `${c.type}|${c.label || ''}|${ruimte}`;
+    if (!groepen.has(sleutel)) groepen.set(sleutel, []);
+    groepen.get(sleutel).push(c);
   }
   const orde = { verlichting: 0, bediening: 1, stopcontact: 2, vast: 3, zwakstroom: 4, verdeling: 5 };
-  return [...groepen.values()].sort(
-    (a, b) => (orde[def(a.type).kringtype] ?? 9) - (orde[def(b.type).kringtype] ?? 9)
+  const rest = [...groepen.values()].sort(
+    (a, b) => (orde[def(a[0].type).kringtype] ?? 9) - (orde[def(b[0].type).kringtype] ?? 9)
   );
+  return [...rijen, ...rest];
 }
 
-function kort(tekst, max) {
-  const t = String(tekst);
-  return t.length > max ? t.slice(0, max - 1) + '…' : t;
+/** Naam van de ruimte van een component. */
+function ruimteVan(project, comp) {
+  const r = comp.ruimteId && project.plan.ruimtes.find((x) => x.id === comp.ruimteId);
+  return r ? (r.naam || ruimteDef(r.type).naam) : '';
 }
 
 /* ------------------------------------------------------------------ *
@@ -100,164 +131,230 @@ function kort(tekst, max) {
 export function bouwBordSVG(project = store.project) {
   const fasen = project.net.fasen || 1;
 
-  // Kringen groeperen per differentieel; kringen zonder differentieel apart.
-  const gebruikt = project.differentiëlen.filter((d) => project.kringen.some((k) => k.differentieelId === d.id));
-  const banden = gebruikt.map((d) => ({ dif: d, kringen: project.kringen.filter((k) => k.differentieelId === d.id) }));
-  const wees = project.kringen.filter((k) => !gebruikt.some((d) => d.id === k.differentieelId));
+  // 1. kringen per differentieel
+  const gebruikteDif = project.differentiëlen.filter((d) => project.kringen.some((k) => k.differentieelId === d.id));
+  const banden = gebruikteDif.map((d) => ({ dif: d, kringen: project.kringen.filter((k) => k.differentieelId === d.id) }));
+  const wees = project.kringen.filter((k) => !gebruikteDif.some((d) => d.id === k.differentieelId));
   if (wees.length) banden.push({ dif: null, kringen: wees });
-  if (!banden.length) banden.push({ dif: project.differentiëlen[0] || null, kringen: [] });
 
-  // Elke band krijgt de hoogte die haar langste kring nodig heeft.
+  // 2. kolommen met hun eigen breedte en aftakkingen
+  const kolommen = [];
   for (const band of banden) {
-    band.groepen = band.kringen.map((k) => groepeer(project, k.id));
-    const langste = Math.max(0, ...band.groepen.map((g) => g.length));
-    band.hoogte = 118 + langste * STAP + NAAM_RUIMTE;
+    band.kringen.forEach((k, i) => {
+      const rijen = bouwRijen(project, k);
+      const breedste = Math.max(1, ...rijen.map((r) => Math.min(r.length, 12)));
+      kolommen.push({
+        dif: band.dif,
+        eersteVanDif: i === 0,
+        kring: k,
+        rijen,
+        breedte: Math.max(KOL_MIN, 34 + breedste * SYM_STAP + 92),
+      });
+    });
+  }
+  if (!kolommen.length) {
+    kolommen.push({ dif: banden[0] ? banden[0].dif : project.differentiëlen[0] || null, eersteVanDif: true, kring: null, rijen: [], breedte: KOL_MIN });
   }
 
-  const maxKringen = Math.max(1, ...banden.map((b) => b.kringen.length));
-  const breedte = Math.max(980, KOL_X + (maxKringen - 1) * KOL + 240);
-  const bandenHoogte = banden.reduce((s, b) => s + b.hoogte, 0);
-  const hoogte = MARGE * 2 + bandenHoogte + VOET + TITEL + 18;
+  // 3. kolommen over bladen verdelen; een differentieel blijft samen
+  //    zolang het op één blad past.
+  const bladen = [];
+  let huidig = null;
+  const groepBreedte = (vanaf) => {
+    const dif = kolommen[vanaf].dif;
+    let b = DIF_RUIMTE;
+    for (let i = vanaf; i < kolommen.length && kolommen[i].dif === dif; i++) b += kolommen[i].breedte;
+    return b;
+  };
+  for (let i = 0; i < kolommen.length; i++) {
+    const kol = kolommen[i];
+    const start = LINKS + (bladen.length === 0 ? VOEDING_B : 40);
+    const extra = kol.eersteVanDif ? DIF_RUIMTE : 0;
+    let nieuwBlad = !huidig;
+    if (huidig) {
+      if (huidig.x + extra + kol.breedte > MAX_BREEDTE) nieuwBlad = true;
+      // een nieuw differentieel liever in zijn geheel op het volgende blad
+      else if (kol.eersteVanDif && huidig.kolommen.length &&
+        huidig.x + groepBreedte(i) > MAX_BREEDTE && groepBreedte(i) + start <= MAX_BREEDTE) nieuwBlad = true;
+    }
+    if (nieuwBlad) {
+      huidig = { kolommen: [], x: LINKS + (bladen.length === 0 ? VOEDING_B : 40), eerste: bladen.length === 0 };
+      bladen.push(huidig);
+      huidig.x += DIF_RUIMTE;
+    } else if (kol.eersteVanDif) {
+      huidig.x += extra;
+    }
+    kol.x = huidig.x + kol.breedte / 2;
+    kol.nieuwRail = kol.eersteVanDif || huidig.kolommen.length === 0;
+    huidig.x += kol.breedte;
+    huidig.kolommen.push(kol);
+  }
+
+  // 4. hoogtes
+  for (const blad of bladen) {
+    const maxRijen = Math.max(1, ...blad.kolommen.map((k) => k.rijen.length));
+    blad.takHoogte = TAK_BASIS + maxRijen * RIJ_H + NAAM_H;
+    blad.hoogte = blad.takHoogte + DIF_H;
+    blad.breedte = Math.max(...blad.kolommen.map((k) => k.x + k.breedte / 2)) + 40;
+  }
+
+  const breedte = Math.max(900, ...bladen.map((b) => b.breedte));
+  const hoogte = MARGE * 2 + bladen.reduce((s, b) => s + b.hoogte + 26, 0) + TITEL + 10;
 
   let s = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${breedte} ${hoogte}" width="${breedte}" ` +
-    `height="${hoogte}" class="bord-svg" data-breedte="${breedte}" font-family="system-ui, sans-serif">`;
+    `height="${hoogte}" class="bord-svg" font-family="system-ui, sans-serif">`;
   s += `<rect x="0" y="0" width="${breedte}" height="${hoogte}" fill="var(--vlak)"/>`;
   s += `<rect x="${MARGE / 2}" y="${MARGE / 2}" width="${breedte - MARGE}" height="${hoogte - MARGE}" ` +
     `fill="none" stroke="var(--rand)" stroke-width="1.5"/>`;
 
-  // --- Voedingsrij onderaan -----------------------------------------
-  const voetY = hoogte - MARGE - TITEL - 46;
-  const railOnder = voetY - 58;                       // rail van de onderste band
+  // 5. bladen tekenen
+  let y = MARGE + 8;
+  bladen.forEach((blad, bi) => {
+    const hoofdY = y + blad.hoogte;          // hoofdleiding onderaan het blad
+    const railY = hoofdY - DIF_H;            // rail van de differentiëlen
+    const eindX = blad.breedte - 30;
 
-  s += aardelektrode(MARGE + 26, voetY + 16);
-  s += `<line x1="${MARGE + 26}" y1="${voetY}" x2="${MARGE + 26}" y2="${voetY + 16}" stroke="${LIJN}" stroke-width="2"/>`;
-  s += `<line x1="${MARGE + 26}" y1="${voetY}" x2="${MARGE + 96}" y2="${voetY}" stroke="${LIJN}" stroke-width="2"/>`;
-  s += `<text x="${MARGE + 26}" y="${voetY + 46}" text-anchor="middle" font-size="9.5" fill="var(--tekst-zacht)">aardelektrode</text>`;
+    // hoofdleiding
+    s += `<line x1="${LINKS}" y1="${hoofdY}" x2="${eindX}" y2="${hoofdY}" stroke="${LIJN}" stroke-width="3"/>`;
 
-  // kWh-teller
-  const tellerX = MARGE + 96;
-  s += `<rect x="${tellerX}" y="${voetY - 17}" width="52" height="34" fill="var(--sym-fill)" stroke="${LIJN}" stroke-width="2"/>`;
-  s += `<text x="${tellerX + 26}" y="${voetY}" text-anchor="middle" dominant-baseline="central" font-size="11.5" font-weight="600" fill="var(--tekst)">kWh</text>`;
-  s += `<text x="${(MARGE + 26 + tellerX) / 2}" y="${voetY - 8}" text-anchor="middle" font-size="9.5" fill="var(--tekst-zacht)">${fasen === 3 ? 'EXVB 4x10' : 'EXVB 2x10'}</text>`;
+    if (bi === 0) {
+      // aardelektrode, teller en hoofddifferentieel
+      const ax = LINKS + 14;
+      s += `<line x1="${ax}" y1="${hoofdY}" x2="${ax}" y2="${hoofdY + 26}" stroke="${LIJN}" stroke-width="2"/>`;
+      s += aarde(ax, hoofdY + 26);
+      s += `<text x="${ax}" y="${hoofdY + 54}" text-anchor="middle" font-size="9" fill="var(--tekst-zacht)">aarding</text>`;
 
-  // hoofdautomaat
-  const hoofdX = tellerX + 128;
-  s += `<line x1="${tellerX + 52}" y1="${voetY}" x2="${hoofdX}" y2="${voetY}" stroke="${LIJN}" stroke-width="2"/>`;
-  s += automaat(hoofdX, voetY, LIJN, 2.4);
-  s += `<text x="${hoofdX - 26}" y="${voetY + 26}" font-size="11" font-weight="700" fill="var(--tekst)">${fasen === 3 ? '4P' : '2P'} ${project.net.hoofdzekering} A</text>`;
-  s += `<text x="${tellerX + 62}" y="${voetY - 8}" font-size="10" fill="var(--tekst-zacht)">${fasen === 3 ? 'XVB 5G10' : 'XVB 3G10'}</text>`;
+      const tx = LINKS + 76;
+      s += `<rect x="${tx - 26}" y="${hoofdY + 14}" width="52" height="30" fill="var(--sym-fill)" stroke="${LIJN}" stroke-width="1.6"/>`;
+      s += `<text x="${tx}" y="${hoofdY + 29}" text-anchor="middle" dominant-baseline="central" font-size="10.5" font-weight="600" fill="var(--tekst)">kWh</text>`;
+      s += `<line x1="${tx}" y1="${hoofdY}" x2="${tx}" y2="${hoofdY + 14}" stroke="${LIJN}" stroke-width="2"/>`;
+      s += `<text x="${tx + 34}" y="${hoofdY + 24}" font-size="9.5" fill="var(--tekst-zacht)">${fasen === 3 ? 'XVB 4x10' : 'XVB 2x10'}</text>`;
 
-  // van de hoofdautomaat naar de verticale hoofdleiding
-  s += `<line x1="${hoofdX}" y1="${voetY - 24}" x2="${hoofdX}" y2="${voetY - 40}" stroke="${LIJN}" stroke-width="2"/>`;
-  s += `<line x1="${hoofdX}" y1="${voetY - 40}" x2="${HOOFD_X}" y2="${voetY - 40}" stroke="${LIJN}" stroke-width="2"/>`;
-
-  // --- Banden (één rail per differentieel) ---------------------------
-  const railYs = [];
-  let onder = railOnder;
-  for (let i = banden.length - 1; i >= 0; i--) {
-    railYs[i] = onder;
-    onder -= banden[i].hoogte;
-  }
-  const bovensteRail = railYs[0];
-  s += `<line x1="${HOOFD_X}" y1="${voetY - 40}" x2="${HOOFD_X}" y2="${bovensteRail}" stroke="${LIJN}" stroke-width="2"/>`;
-
-  banden.forEach((band, bi) => {
-    const railY = railYs[bi];
-    const laatste = KOL_X + Math.max(0, band.kringen.length - 1) * KOL;
-    s += `<line x1="${HOOFD_X}" y1="${railY}" x2="${Math.max(laatste, KOL_X)}" y2="${railY}" stroke="${LIJN}" stroke-width="3.2"/>`;
-
-    // differentieel tussen hoofdleiding en rail
-    if (band.dif) {
-      const kleur = band.dif.gevoeligheid <= 30 ? 'var(--accent)' : LIJN;
-      s += differentieel(HOOFD_X, railY - 4, kleur);
-      s += `<text x="${HOOFD_X + 16}" y="${railY - 44}" font-size="11" font-weight="700" fill="var(--tekst)">` +
-        `${fasen === 3 ? '4P' : '2P'} ${band.dif.amp} A</text>`;
-      s += `<text x="${HOOFD_X + 16}" y="${railY - 31}" font-size="11" font-weight="700" fill="${kleur}">Δ${band.dif.gevoeligheid} mA</text>`;
-      s += `<text x="${HOOFD_X + 16}" y="${railY - 19}" font-size="9.5" fill="var(--tekst-zacht)">` +
-        `type ${band.dif.type || 'A'} · ${escape(kort(band.dif.naam, 12))}</text>`;
+      const hx = LINKS + 186;
+      s += hefboom(hx, hoofdY - 9, LIJN, 2.2);
+      s += `<text x="${hx - 34}" y="${hoofdY - 6}" font-size="11" font-weight="700" fill="var(--tekst)">A</text>`;
+      s += kortsluitvak(hx + 6, hoofdY + 16, project.net.kortsluit || 3000);
+      s += `<text x="${hx + 6}" y="${hoofdY + 34}" font-size="9.5" fill="var(--tekst)">` +
+        `${fasen === 3 ? '4P' : '2P'} - ${project.net.hoofdzekering} A</text>`;
+      s += `<text x="${hx + 6}" y="${hoofdY - 18}" font-size="9.5" font-weight="700" fill="var(--tekst)">diff 300 mA</text>`;
+      s += `<text x="${hx + 6}" y="${hoofdY - 6}" font-size="9" fill="var(--tekst-zacht)">type A</text>`;
     } else {
-      s += `<text x="${HOOFD_X + 12}" y="${railY - 16}" font-size="11" font-weight="700" fill="var(--fout)">zonder differentieel</text>`;
+      s += `<text x="${LINKS}" y="${hoofdY + 20}" font-size="9.5" fill="var(--tekst-zacht)">vervolg van de hoofdleiding</text>`;
     }
 
-    // --- kringen, van de rail naar boven ---
-    band.kringen.forEach((k, ki) => {
-      const x = KOL_X + ki * KOL;
-      const groepen = band.groepen[ki];
-      const basis = railY - 118;                       // eerste symbool
-      const top = basis - Math.max(0, groepen.length - 1) * STAP;
-      const eind = top - 26;
+    // differentiëlen en rails
+    let lopendeDif = null;
+    let railStart = null;
+    const sluitRail = (tot) => {
+      if (railStart !== null) {
+        s += `<line x1="${railStart}" y1="${railY}" x2="${tot}" y2="${railY}" stroke="${LIJN}" stroke-width="3"/>`;
+      }
+    };
 
-      // takleiding
-      s += `<line x1="${x}" y1="${railY}" x2="${x}" y2="${eind}" stroke="${LIJN}" stroke-width="1.8"/>`;
+    blad.kolommen.forEach((kol, ki) => {
+      if (kol.nieuwRail || ki === 0) {
+        if (ki > 0) sluitRail(blad.kolommen[ki - 1].x + blad.kolommen[ki - 1].breedte / 2 - 10);
+        lopendeDif = kol.dif;
+        const dx = kol.x - kol.breedte / 2 - DIF_RUIMTE / 2;
+        railStart = dx;
+        // verticale verbinding met de hoofdleiding, met het differentieel erin
+        s += `<line x1="${dx}" y1="${hoofdY}" x2="${dx}" y2="${railY}" stroke="${LIJN}" stroke-width="2"/>`;
+        if (kol.dif) {
+          const kleur = kol.dif.gevoeligheid <= 30 ? 'var(--accent)' : LIJN;
+          s += hefboom(dx, hoofdY - 40, kleur, 2.2);
+          s += kortsluitvak(dx + 8, hoofdY - 20, kol.dif.kortsluit || 3000);
+          s += gedraaid(dx - 10, hoofdY - 6, escape(kort(kol.dif.naam, 13)), { vet: true, grootte: 10 });
+          s += gedraaid(dx + 46, hoofdY - 6, `Δ${kol.dif.gevoeligheid} mA · type ${kol.dif.type || 'A'}`, { grootte: 9, kleur: kleur });
+          s += gedraaid(dx + 58, hoofdY - 6, `${fasen === 3 ? '4P' : '2P'} - ${kol.dif.amp} A`, { grootte: 9, kleur: 'var(--tekst-zacht)' });
+        } else {
+          s += gedraaid(dx - 8, hoofdY - 8, 'zonder differentieel', { vet: true, grootte: 10, kleur: 'var(--fout)' });
+        }
+      }
+      if (ki === blad.kolommen.length - 1) sluitRail(kol.x + kol.breedte / 2 - 10);
+    });
 
-      // automaat vlak boven de rail
-      s += automaat(x, railY - 12, LIJN, 2.2);
-      s += `<text x="${x + 13}" y="${railY - 30}" font-size="11.5" font-weight="700" fill="var(--tekst)">` +
-        `${polen(k, fasen)} · ${k.curve || 'C'}${k.amp} A</text>`;
+    // kringen
+    for (const kol of blad.kolommen) {
+      const k = kol.kring;
+      if (!k) continue;
+      const x = kol.x - kol.breedte / 2 + 34;        // de takleiding staat links in de kolom
+      const rijen = kol.rijen;
+      const bovenste = railY - TAK_BASIS - Math.max(0, rijen.length - 1) * RIJ_H;
+      const top = bovenste - 16;
 
-      // leiding met aantal geleiders en kabeltype
-      s += leiding(x, railY - 64, geleiders(k, fasen));
-      s += `<text x="${x + 13}" y="${railY - 60}" font-size="10" fill="var(--tekst-zacht)">${kabelTekst(k, fasen)}</text>`;
+      // takleiding van de rail naar boven
+      s += `<line x1="${x}" y1="${railY}" x2="${x}" y2="${top}" stroke="${LIJN}" stroke-width="1.6"/>`;
 
-      // kringnummer in de kleur van het plan
-      s += `<circle cx="${x}" cy="${railY - 92}" r="10.5" fill="${k.kleur}"/>`;
-      s += `<text x="${x}" y="${railY - 92}" text-anchor="middle" dominant-baseline="central" font-size="10.5" ` +
-        `font-weight="700" fill="#fff">${k.nummer}</text>`;
+      // automaat met kringletter, kortsluitvermogen en aanduiding
+      s += hefboom(x, railY - 16, LIJN, 2);
+      s += `<circle cx="${x - 26}" cy="${railY - 14}" r="9.5" fill="${k.kleur}"/>`;
+      s += `<text x="${x - 26}" y="${railY - 14}" text-anchor="middle" dominant-baseline="central" ` +
+        `font-size="10" font-weight="700" fill="#fff">${k.nummer}</text>`;
+      s += kortsluitvak(x + 6, railY - 24, k.kortsluit || 3000);
+      s += gedraaid(x + 42, railY - 6, `${polen(k, fasen)} - ${k.curve || 'C'} ${k.amp}A`, { grootte: 9.5 });
 
-      // symbolen van de aangesloten toestellen, in de lijn
-      groepen.forEach((g, gi) => {
-        const y = basis - gi * STAP;
-        s += `<g transform="translate(${x} ${y}) scale(0.3)" fill="none" stroke="${LIJN}" stroke-width="5.5" ` +
-          `stroke-linecap="round" stroke-linejoin="round">${symbool(g.type)}</g>`;
-        const naam = def(g.type).naam;
-        s += `<text x="${x + 20}" y="${y - 2}" font-size="10" fill="var(--tekst)">` +
-          `${g.aantal > 1 ? `${g.aantal}× ` : ''}${escape(kort(naam, 24))}</text>`;
-        const onderschrift = [g.label, g.ruimte].filter(Boolean).join(' · ');
-        if (onderschrift) {
-          s += `<text x="${x + 20}" y="${y + 10}" font-size="9" fill="var(--tekst-zacht)">${escape(kort(onderschrift, 26))}</text>`;
+      // leiding: twee wandmerken en de kabelaanduiding
+      s += buisMerk(x, railY - 62);
+      s += buisMerk(x, railY - 92);
+      s += gedraaid(x + 8, railY - 50, kabelTekst(k, fasen), { grootte: 9.5, kleur: 'var(--tekst-zacht)' });
+
+      // genummerde aftakkingen
+      rijen.forEach((rij, ri) => {
+        const ry = railY - TAK_BASIS - ri * RIJ_H;
+        const zichtbaar = rij.slice(0, 12);
+        const eindeX = x + 26 + Math.max(0, zichtbaar.length - 1) * SYM_STAP + 12;
+        s += `<line x1="${x}" y1="${ry}" x2="${eindeX}" y2="${ry}" stroke="${LIJN}" stroke-width="1.4"/>`;
+        s += `<text x="${x - 9}" y="${ry + 3}" text-anchor="end" font-size="9.5" fill="var(--tekst)">${ri + 1}</text>`;
+        zichtbaar.forEach((c, ci) => {
+          s += symboolOpLeiding(c.type, x + 26 + ci * SYM_STAP, ry, 0.26, LIJN, 6);
+        });
+        if (rij.length > zichtbaar.length) {
+          s += `<text x="${eindeX + 4}" y="${ry + 3}" font-size="9" fill="var(--tekst-zacht)">+${rij.length - zichtbaar.length}</text>`;
+        }
+        const eerste = rij[0];
+        const bijschrift = [eerste.label, ruimteVan(project, eerste)].filter(Boolean).join(' · ');
+        if (bijschrift) {
+          s += `<text x="${eindeX + (rij.length > zichtbaar.length ? 24 : 10)}" y="${ry + 3}" font-size="8.5" ` +
+            `fill="var(--tekst-zacht)">${escape(kort(bijschrift, 16))}</text>`;
         }
       });
 
-      if (!groepen.length) {
-        s += `<text x="${x + 14}" y="${basis}" font-size="10" fill="var(--tekst-zacht)">geen toestellen</text>`;
+      if (!rijen.length) {
+        s += `<text x="${x + 10}" y="${railY - TAK_BASIS}" font-size="9.5" fill="var(--tekst-zacht)">geen toestellen</text>`;
       }
 
-      // kringnaam verticaal bovenaan, zoals op een eendraadschema
-      s += `<text x="${x - 5}" y="${eind - 8}" font-size="11.5" font-weight="700" fill="var(--tekst)" ` +
-        `transform="rotate(-90 ${x - 5} ${eind - 8})" text-anchor="start">${escape(kort(k.naam, 24))}</text>`;
-      const punten = puntenInKring(project, k.id);
-      s += `<text x="${x + 12}" y="${eind - 8}" font-size="9" fill="var(--tekst-zacht)" ` +
-        `transform="rotate(-90 ${x + 12} ${eind - 8})" text-anchor="start">` +
-        `${punten} pt · ${(vermogenVanKring(project, k.id) / 1000).toFixed(1)} kW</text>`;
-    });
+      // kringnaam bovenaan, gedraaid
+      s += gedraaid(x - 6, top - 8, escape(kort(k.naam, 26)), { vet: true, grootte: 10.5 });
+      s += gedraaid(x + 8, top - 8, `${puntenInKring(project, k.id)} pt · ${(vermogenVanKring(project, k.id) / 1000).toFixed(1)} kW`,
+        { grootte: 8.5, kleur: 'var(--tekst-zacht)' });
+    }
+
+    y += blad.hoogte + 26;
   });
 
-  // --- Titelhoek ------------------------------------------------------
+  // 6. titelhoek
   const tx = MARGE / 2;
   const ty = hoogte - MARGE / 2 - TITEL;
   const tb = breedte - MARGE;
-  const kol1 = tb * 0.52, kol2 = tb * 0.78;
+  const kol1 = tb * 0.5, kol2 = tb * 0.78;
   s += `<rect x="${tx}" y="${ty}" width="${tb}" height="${TITEL}" fill="none" stroke="var(--rand)" stroke-width="1.5"/>`;
   s += `<line x1="${tx + kol1}" y1="${ty}" x2="${tx + kol1}" y2="${ty + TITEL}" stroke="var(--rand)" stroke-width="1.5"/>`;
   s += `<line x1="${tx + kol2}" y1="${ty}" x2="${tx + kol2}" y2="${ty + TITEL}" stroke="var(--rand)" stroke-width="1.5"/>`;
-
-  s += `<text x="${tx + 14}" y="${ty + 22}" font-size="11" font-weight="700" fill="var(--tekst)">Plaats van de elektrische installatie</text>`;
-  s += `<text x="${tx + 14}" y="${ty + 40}" font-size="11" fill="var(--tekst)">${escape(project.klant || '—')}</text>`;
-  s += `<text x="${tx + 14}" y="${ty + 56}" font-size="11" fill="var(--tekst)">${escape(project.adres || '')}</text>`;
-  s += `<text x="${tx + 14}" y="${ty + 78}" font-size="10" fill="var(--tekst-zacht)">` +
-    `Controle op basis van gangbare AREI-vuistregels — geen keuringsverslag.</text>`;
-
-  s += `<text x="${tx + kol1 + 14}" y="${ty + 22}" font-size="11" font-weight="700" fill="var(--tekst)">${escape(project.naam || 'Installatie')}</text>`;
-  s += `<text x="${tx + kol1 + 14}" y="${ty + 40}" font-size="10.5" fill="var(--tekst-zacht)">Getekend met Elek</text>`;
-  s += `<text x="${tx + kol1 + 14}" y="${ty + 58}" font-size="10.5" fill="var(--tekst-zacht)">` +
+  s += `<text x="${tx + 14}" y="${ty + 20}" font-size="10.5" font-weight="700" fill="var(--tekst)">Plaats van de elektrische installatie</text>`;
+  s += `<text x="${tx + 22}" y="${ty + 40}" font-size="10.5" fill="var(--tekst)">${escape(project.klant || '')}</text>`;
+  s += `<text x="${tx + 22}" y="${ty + 56}" font-size="10.5" fill="var(--tekst)">${escape(project.adres || '')}</text>`;
+  s += `<text x="${tx + 14}" y="${ty + 80}" font-size="9" fill="var(--tekst-zacht)">` +
+    `Opgemaakt met Elek · controle op basis van gangbare AREI-vuistregels, geen keuringsverslag.</text>`;
+  s += `<text x="${tx + kol1 + 14}" y="${ty + 20}" font-size="10.5" font-weight="700" fill="var(--tekst)">Installatie</text>`;
+  s += `<text x="${tx + kol1 + 22}" y="${ty + 40}" font-size="10.5" fill="var(--tekst)">${escape(project.naam || '')}</text>`;
+  s += `<text x="${tx + kol1 + 22}" y="${ty + 56}" font-size="10.5" fill="var(--tekst-zacht)">` +
     `${project.kringen.length} kringen · ${project.componenten.filter((c) => def(c.type).kringtype !== 'bouw').length} componenten</text>`;
-
   const datum = new Date(project.gewijzigd || Date.now()).toLocaleDateString('nl-BE');
-  s += `<text x="${tx + kol2 + 14}" y="${ty + 22}" font-size="11" font-weight="700" fill="var(--tekst)">Eendraadschema</text>`;
-  s += `<text x="${tx + kol2 + 14}" y="${ty + 42}" font-size="10.5" fill="var(--tekst)">` +
-    `${fasen === 3 ? '3 x 400 V + N ~ 50 Hz' : '230 V + N ~ 50 Hz'}</text>`;
-  s += `<text x="${tx + kol2 + 14}" y="${ty + 60}" font-size="10.5" fill="var(--tekst-zacht)">${datum}</text>`;
-  s += `<text x="${tx + kol2 + 14}" y="${ty + 78}" font-size="10.5" fill="var(--tekst-zacht)">blad 1/1</text>`;
+  s += `<text x="${tx + kol2 + 14}" y="${ty + 20}" font-size="10.5" font-weight="700" fill="var(--tekst)">Eendraadschema</text>`;
+  s += `<text x="${tx + kol2 + 14}" y="${ty + 40}" font-size="10.5" fill="var(--tekst)">` +
+    `${fasen === 3 ? '3 x 400V + N ~ 50Hz' : '2 x 230V ~ 50Hz'}</text>`;
+  s += `<text x="${tx + kol2 + 14}" y="${ty + 58}" font-size="10.5" fill="var(--tekst-zacht)">${datum}</text>`;
+  s += `<text x="${tx + kol2 + 14}" y="${ty + 76}" font-size="10.5" fill="var(--tekst-zacht)">blad 1/1</text>`;
 
   s += '</svg>';
   return s;

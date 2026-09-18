@@ -406,6 +406,7 @@ function paneelProject() {
       <div><strong>${(totaalVermogen(p) / 1000).toFixed(1)}</strong><span>kW geschat</span></div>
     </div>
     <label class="schakel"><input type="checkbox" data-actie="ui" data-veld="kleurPerKring" ${store.ui.kleurPerKring ? 'checked' : ''}> Kleur per kring tonen</label>
+    <label class="schakel"><input type="checkbox" data-actie="ui" data-veld="toonKringnummers" ${store.ui.toonKringnummers ? 'checked' : ''}> Kringnummer bij elk symbool</label>
     ${fouten ? `<p class="melding fout">${fouten} fout(en) in de controle — zie stap 3.</p>` : ''}
     <div class="knop-rij"><button class="knop" data-actie="zoom-alles">Alles in beeld</button></div>`;
 }

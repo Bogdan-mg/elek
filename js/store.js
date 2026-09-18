@@ -36,6 +36,7 @@ export const store = {
     bezigMuur: null,
     lengteInvoer: '',
     kleurPerKring: false,
+    toonKringnummers: true,
     filterGroep: 'alle',
   },
 
